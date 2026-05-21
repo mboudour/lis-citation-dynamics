@@ -1,15 +1,29 @@
 """
 fetch_openalex_lis.py
 ---------------------
-Fetches all Library and Information Science (LIS) journal articles from
+Fetches Library and Information Science (LIS) journal articles from
 OpenAlex (1975–2024) and saves the result as a pandas DataFrame pickle,
 in the same format as the Dimensions.ai dataset used in the companion analysis.
 
 Usage:
-    python fetch_openalex_lis.py [--email your@email.com] [--output OpenAlex_LIS_1975_2024.pkl]
+    python fetch_openalex_lis.py [--email your@email.com] [--api-key KEY] [--output OpenAlex_LIS_1975_2024.pkl]
 
-OpenAlex concept ID for Library and Information Science: C136764020
-API documentation: https://docs.openalex.org/
+Filter strategy
+---------------
+We use OpenAlex's primary_topic filter rather than the legacy concepts filter.
+The concept C136764020 ("Library and Information Science") is assigned by an
+automated ML tagger and returns ~4.2 million records — far too broad.
+Instead we filter by five specific topic IDs whose primary_topic corresponds
+to core LIS and scientometrics:
+
+    T10712  Library Science and Information Literacy       (114,018 works)
+    T14330  Library Science and Information Systems         (98,052 works)
+    T13166  Information Science and Libraries               (55,834 works)
+    T13673  Library Science and Information                 (25,971 works)
+    T10102  Scientometrics and Bibliometrics Research       (99,916 works)
+
+Combined (OR logic, deduplicated): ~168,901 works — a corpus comparable in
+size and scope to the Dimensions.ai LIS dataset (259,220 works).
 
 Output columns (matching Dimensions format):
     id              : OpenAlex work ID (e.g. W2741809807)
@@ -36,12 +50,14 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-CONCEPT_ID   = "C136764020"          # OpenAlex concept: Library and Information Science
-YEAR_MIN     = 1975
-YEAR_MAX     = 2024
-PER_PAGE     = 200                   # Max allowed by OpenAlex
-SLEEP_S      = 0.1                   # Polite delay between requests (seconds)
-MAX_RETRIES  = 5                     # Retries on transient HTTP errors
+# Five primary_topic IDs covering core LIS and scientometrics
+TOPIC_IDS = ["T10712", "T14330", "T13166", "T13673", "T10102"]
+
+YEAR_MIN  = 1975
+YEAR_MAX  = 2024
+PER_PAGE  = 200          # Max allowed by OpenAlex
+SLEEP_S   = 0.1          # Polite delay between requests (seconds)
+MAX_RETRIES = 5          # Retries on transient HTTP errors
 
 
 def reconstruct_abstract(inverted_index: dict | None) -> str:
@@ -57,11 +73,13 @@ def reconstruct_abstract(inverted_index: dict | None) -> str:
     return " ".join(positions[i] for i in sorted(positions))
 
 
-def fetch_page(url: str, params: dict, headers: dict | None = None, retries: int = MAX_RETRIES) -> dict:
+def fetch_page(url: str, params: dict, headers: dict | None = None,
+               retries: int = MAX_RETRIES) -> dict:
     """GET a single page from the OpenAlex API with retry logic."""
     for attempt in range(retries):
         try:
-            resp = requests.get(url, params=params, headers=headers or {}, timeout=30)
+            resp = requests.get(url, params=params, headers=headers or {},
+                                timeout=30)
             if resp.status_code == 200:
                 return resp.json()
             elif resp.status_code == 429:
@@ -69,7 +87,8 @@ def fetch_page(url: str, params: dict, headers: dict | None = None, retries: int
                 print(f"  Rate limited — waiting {wait}s …")
                 time.sleep(wait)
             else:
-                print(f"  HTTP {resp.status_code} — retrying ({attempt+1}/{retries}) …")
+                print(f"  HTTP {resp.status_code} — retrying "
+                      f"({attempt+1}/{retries}) …")
                 time.sleep(5 * (attempt + 1))
         except requests.RequestException as e:
             print(f"  Request error: {e} — retrying ({attempt+1}/{retries}) …")
@@ -77,15 +96,20 @@ def fetch_page(url: str, params: dict, headers: dict | None = None, retries: int
     raise RuntimeError(f"Failed to fetch {url} after {retries} retries.")
 
 
-def fetch_all_works(email: str | None = None, api_key: str | None = None) -> list[dict]:
+def fetch_all_works(email: str | None = None,
+                    api_key: str | None = None) -> list[dict]:
     """
-    Retrieve all LIS journal articles from OpenAlex using cursor-based pagination.
-    Returns a list of raw work dictionaries.
+    Retrieve all LIS journal articles from OpenAlex using cursor-based
+    pagination. Returns a list of raw work dictionaries.
     """
     base_url = "https://api.openalex.org/works"
+
+    # OR-join topic IDs with pipe character
+    topic_filter = "|".join(TOPIC_IDS)
+
     params = {
         "filter": (
-            f"concepts.id:{CONCEPT_ID},"
+            f"primary_topic.id:{topic_filter},"
             f"type:article,"
             f"publication_year:{YEAR_MIN}-{YEAR_MAX}"
         ),
@@ -167,17 +191,17 @@ def parse_works(raw_works: list[dict]) -> pd.DataFrame:
         is_oa   = bool(oa_info.get("is_oa", False))
 
         records.append({
-            "id":           w.get("id", ""),
-            "doi":          doi,
-            "title":        w.get("title") or "",
-            "abstract":     abstract,
-            "year":         w.get("publication_year"),
-            "journal":      journal,
-            "authors":      authors,
-            "author_ids":   author_ids,
-            "times_cited":  w.get("cited_by_count", 0),
+            "id":            w.get("id", ""),
+            "doi":           doi,
+            "title":         w.get("title") or "",
+            "abstract":      abstract,
+            "year":          w.get("publication_year"),
+            "journal":       journal,
+            "authors":       authors,
+            "author_ids":    author_ids,
+            "times_cited":   w.get("cited_by_count", 0),
             "reference_ids": refs,
-            "is_oa":        is_oa,
+            "is_oa":         is_oa,
         })
 
     df = pd.DataFrame(records)
@@ -188,10 +212,11 @@ def parse_works(raw_works: list[dict]) -> pd.DataFrame:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch LIS data from OpenAlex")
+    parser = argparse.ArgumentParser(
+        description="Fetch LIS data from OpenAlex using primary_topic filter")
     parser.add_argument(
         "--email", default=None,
-        help="Your email for OpenAlex polite pool (recommended for higher rate limits)"
+        help="Your email for OpenAlex polite pool (recommended)"
     )
     parser.add_argument(
         "--output", default="OpenAlex_LIS_1975_2024.pkl",
@@ -199,13 +224,13 @@ def main():
     )
     parser.add_argument(
         "--api-key", default=None, dest="api_key",
-        help="OpenAlex API key (passed as Authorization header; never stored in output)"
+        help="OpenAlex API key (passed as Authorization header; never stored)"
     )
     args = parser.parse_args()
 
     print("=" * 60)
-    print("OpenAlex LIS Fetcher")
-    print(f"  Concept : Library and Information Science ({CONCEPT_ID})")
+    print("OpenAlex LIS Fetcher (topic-based filter)")
+    print(f"  Topics  : {', '.join(TOPIC_IDS)}")
     print(f"  Years   : {YEAR_MIN}–{YEAR_MAX}")
     print(f"  Email   : {args.email or '(none — anonymous pool)'}")
     print(f"  API key : {'provided (Authorization header)' if args.api_key else '(none)'}")
