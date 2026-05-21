@@ -1,0 +1,8 @@
+{
+  "total_pairs": 500000,
+  "positive_pairs": 250000,
+  "negative_pairs": 250000,
+  "semantic_similarity_method": "SBERT all-MiniLM-L6-v2 cosine similarity",
+  "mean_semantic_sim_positive": 0.5573,
+  "mean_semantic_sim_negative": 0.1624
+}
