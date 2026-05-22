@@ -1,0 +1,6 @@
+{
+  "n_texts_encoded": 168811,
+  "embedding_dim": 384,
+  "mean_sim_positive": 0.5183,
+  "mean_sim_negative": 0.2161
+}
