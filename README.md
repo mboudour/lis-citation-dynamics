@@ -29,14 +29,99 @@ This study addresses four core research questions:
 
 ### Dimensions.ai (Primary Dataset)
 
-The primary dataset was extracted from [Dimensions.ai](https://www.dimensions.ai/) — a comprehensive scholarly database — categorized under Library and Information Science. Due to Dimensions' proprietary Terms of Service, the raw dataset cannot be redistributed. Researchers with Dimensions access can reproduce it using the following query parameters:
+The primary dataset was retrieved from [Dimensions.ai](https://www.dimensions.ai/) using the Python script below (requires a valid Dimensions API key and the `dimcli` library). Due to Dimensions' proprietary Terms of Service, the raw dataset cannot be redistributed; researchers with Dimensions access can reproduce it exactly using this script.
 
-| Parameter | Value |
-| :--- | :--- |
-| **Source** | Dimensions.ai |
-| **Domain / Category** | Library and Information Science (Fields of Research) |
-| **Publication type** | Journal articles |
-| **Time span** | 1975–2024 |
+```python
+%%time
+import dimcli
+import pandas as pd
+import time
+import datetime
+
+# --- Authentication ---
+with open("../key.txt", "r") as f:
+    api_key = f.read().strip()
+
+dimcli.login(key=api_key, endpoint="https://app.dimensions.ai/api/dsl.json")
+dsl = dimcli.Dsl()
+
+# --- Configuration ---
+YEARS   = list(range(1975, 2025))
+FIELDS  = ("id+year+date+title+authors+journal+abstract+"
+           "times_cited+reference_ids+"
+           "category_for+concepts+open_access+doi")
+
+KEYWORDS = [
+    "knowledge organization",
+    "digital libraries",
+    "information literacy",
+    "academic libraries"
+]
+
+# --- Helper ---
+def safe_query(dsl, query_str, label=""):
+    for attempt in range(3):
+        try:
+            result = dsl.query_iterative(query_str).as_dataframe()
+            print(f"  {label} → {len(result)} records", flush=True)
+            return result
+        except Exception as e:
+            print(f"  {label} error: {e}  (attempt {attempt+1}/3)", flush=True)
+            time.sleep(10)
+    return pd.DataFrame()
+
+# --- Year-by-year loop ---
+all_frames = []
+
+for y in YEARS:
+    print(f"\n[{datetime.datetime.now():%H:%M:%S}]  Year {y}", flush=True)
+    year_parts = []
+
+    # Query A — FoR 4610
+    q = safe_query(dsl, f"""
+        search publications
+        where category_for.id = "4610"
+        and year = {y}
+        and type = "article"
+        return publications[{FIELDS}]
+    """, label="FoR 4610")
+    year_parts.append(q)
+
+    # Query B — one query per keyword
+    for kw in KEYWORDS:
+        q = safe_query(dsl, f"""
+            search publications
+            in title_abstract_only
+            for "{kw}"
+            where year = {y}
+            and type = "article"
+            return publications[{FIELDS}]
+        """, label=f'"{kw}"')
+        year_parts.append(q)
+        time.sleep(1)
+
+    # Combine and deduplicate for this year
+    year_df = pd.concat(year_parts, ignore_index=True)
+    year_df.drop_duplicates(subset="id", inplace=True)
+    all_frames.append(year_df)
+    print(f"  Year {y} deduplicated total: {len(year_df)}", flush=True)
+    time.sleep(2)
+
+# --- Final assembly ---
+df = pd.concat(all_frames, ignore_index=True)
+df.drop_duplicates(subset="id", inplace=True)
+df.sort_values("year", inplace=True)
+df.reset_index(drop=True, inplace=True)
+
+print(f"\n{'='*50}")
+print(f"TOTAL RECORDS : {len(df)}")
+print(f"YEAR RANGE    : {int(df['year'].min())} – {int(df['year'].max())}")
+
+df.to_pickle("Dimensions_LIS_1975_2024.pkl")
+print("Saved → Dimensions_LIS_1975_2024.pkl")
+```
+
+The query combines **FoR 4610** (ANZSRC Field of Research code for Library and Information Studies) with keyword searches in title/abstract for four core LIS terms. Results are deduplicated by Dimensions publication ID.
 
 | Property | Value |
 | :--- | :--- |
@@ -48,12 +133,7 @@ The primary dataset was extracted from [Dimensions.ai](https://www.dimensions.ai
 
 ### OpenAlex (Replication Dataset)
 
-The replication dataset is fetched from [OpenAlex](https://openalex.org/) — a fully open scholarly database — using the concept identifier for Library and Information Science (`C136764020`). The fetch script is provided in `data/fetch_openalex_lis.py`. The resulting pickle file (`OpenAlex_LIS_1975_2024.pkl`) follows the same column schema as the Dimensions dataset, enabling the pipeline to be run without modification.
-
-OpenAlex API query:
-```
-https://api.openalex.org/works?filter=concepts.id:C136764020,type:article,publication_year:1975-2024
-```
+A replication on [OpenAlex](https://openalex.org/) data is in progress. The data collection script and query will be added here once the methodology is finalised by the authors. The resulting pickle file (`OpenAlex_LIS_1975_2024.pkl`) follows the same column schema as the Dimensions dataset, enabling the pipeline to be run without modification.
 
 ### Citation Pair Construction
 
