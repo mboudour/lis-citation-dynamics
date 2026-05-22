@@ -1,13 +1,12 @@
 {
-  "source": "OpenAlex",
-  "n_papers": 168901,
+  "total_articles": 168901,
   "year_min": 1975,
   "year_max": 2024,
-  "abstract_coverage": 0.643,
-  "reference_coverage": 0.2976,
-  "mean_citations": 6.26,
-  "median_citations": 0.0,
-  "n_positive_pairs": 247270,
-  "n_negative_pairs": 247270,
-  "n_total_pairs": 494540
+  "with_abstract_pct": 64.3,
+  "with_references_pct": 29.8,
+  "mean_times_cited": 6.26,
+  "total_positive_pairs": 239349,
+  "total_negative_pairs": 250000,
+  "graph_nodes": 168901,
+  "graph_edges": 249679
 }

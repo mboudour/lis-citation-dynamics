@@ -1,0 +1,43 @@
+Loading oa_data.parquet...
+  168,901 articles, years 1975–2024
+Building citation graph...
+  Nodes: 168,901  Edges: 249,679
+Collecting positive pairs...
+  Total positive: 239,349
+  Sampled: 239,349
+Sampling negative pairs...
+  Sampled: 250,000 (attempts: 518,385)
+Computing features...
+  0/489,349
+  100,000/489,349
+  200,000/489,349
+  300,000/489,349
+  400,000/489,349
+
+Saved: /home/ubuntu/oa_work/results/oa_pairs_features.parquet  (4.2 MB)
+Shape: (489349, 9)
+       prestige_cited  activity_citing  temporal_gap  common_refs  common_citers  jaccard_refs
+count      489349.000       489349.000    489349.000   489349.000     489349.000    489349.000
+mean           29.567            8.961        10.351        0.402          0.399         0.015
+std            88.360           14.512         9.295        1.196          2.054         0.047
+min             0.000            0.000         1.000        0.000          0.000         0.000
+25%             0.000            0.000         4.000        0.000          0.000         0.000
+50%             3.000            4.000         7.000        0.000          0.000         0.000
+75%            21.000           13.000        14.000        0.000          0.000         0.000
+max           993.000          289.000        49.000       35.000        192.000         1.000
+
+Dataset stats:
+{
+  "total_articles": 168901,
+  "year_min": 1975,
+  "year_max": 2024,
+  "with_abstract_pct": 64.3,
+  "with_references_pct": 29.8,
+  "mean_times_cited": 6.26,
+  "total_positive_pairs": 239349,
+  "total_negative_pairs": 250000,
+  "graph_nodes": 168901,
+  "graph_edges": 249679
+}
+
+Saved oa_texts.parquet: 168,811 texts
