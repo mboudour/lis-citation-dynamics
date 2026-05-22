@@ -1,0 +1,12 @@
+{
+  "model": "Gradient Boosting",
+  "shap_mean_abs": {
+    "activity_citing": 4.714786764608906,
+    "prestige_cited": 4.49798593491912,
+    "semantic_similarity": 1.9557974772634934,
+    "temporal_gap": 0.7957745632896688,
+    "common_citers": 0.6425822553884744,
+    "jaccard_refs": 0.6197670138557664,
+    "common_refs": 0.24146201606346362
+  }
+}

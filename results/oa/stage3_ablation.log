@@ -1,0 +1,22 @@
+Loading pairs...
+  489,349 pairs
+Baseline (Random Forest, all features): AUC=0.9972
+  without prestige_cited: AUC=0.9847  (drop=+0.0125)
+  without activity_citing: AUC=0.9890  (drop=+0.0082)
+  without temporal_gap: AUC=0.9960  (drop=+0.0012)
+  without common_refs: AUC=0.9972  (drop=+0.0000)
+  without common_citers: AUC=0.9970  (drop=+0.0002)
+  without jaccard_refs: AUC=0.9972  (drop=+0.0000)
+  without semantic_similarity: AUC=0.9914  (drop=+0.0058)
+
+Saved: oa_ablation_results.json
+{
+  "all_features": 0.9972,
+  "without_prestige_cited": 0.9847,
+  "without_activity_citing": 0.989,
+  "without_temporal_gap": 0.996,
+  "without_common_refs": 0.9972,
+  "without_common_citers": 0.997,
+  "without_jaccard_refs": 0.9972,
+  "without_semantic_similarity": 0.9914
+}

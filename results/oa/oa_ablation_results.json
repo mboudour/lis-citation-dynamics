@@ -1,0 +1,13 @@
+{
+  "model": "Random Forest",
+  "ablation": {
+    "all_features": 0.9972,
+    "without_prestige_cited": 0.9847,
+    "without_activity_citing": 0.989,
+    "without_temporal_gap": 0.996,
+    "without_common_refs": 0.9972,
+    "without_common_citers": 0.997,
+    "without_jaccard_refs": 0.9972,
+    "without_semantic_similarity": 0.9914
+  }
+}
