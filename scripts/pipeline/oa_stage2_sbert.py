@@ -1,123 +1,122 @@
 """
-oa_stage2_sbert.py
-------------------
-Stage 2: SBERT encoding for OpenAlex LIS dataset.
-Encodes all unique paper texts (title + abstract) with all-MiniLM-L6-v2,
-computes cosine similarity for each pair, and adds it as semantic_similarity.
-
-Checkpoint-based: saves progress every CHUNK_SIZE texts so it can resume
-after sandbox hibernation.
+OpenAlex Stage 2: SBERT Encoding + Semantic Similarity
+Encodes all texts with all-MiniLM-L6-v2, saves checkpoints every 5000 texts,
+then computes cosine similarity for each pair in oa_pairs_features.parquet.
 """
-
-import pandas as pd
+import json, os
 import numpy as np
-import pickle
-import json
-import os
+import pandas as pd
 from pathlib import Path
-
-CHUNK_SIZE   = 5000
-BATCH_SIZE   = 64
-OUTPUT_DIR   = "/home/ubuntu/lis/results_oa"
-CKPT_DIR     = f"{OUTPUT_DIR}/sbert_checkpoints"
-PROGRESS_FILE = f"{CKPT_DIR}/progress.json"
-
-os.makedirs(CKPT_DIR, exist_ok=True)
-
-# ── Load pairs ─────────────────────────────────────────────────────────────
-print("Loading OpenAlex stage1 pairs...")
-pairs_df = pd.read_parquet("/home/ubuntu/lis/results_oa/oa_stage1_pairs.parquet")
-print(f"  {len(pairs_df):,} pairs")
-
-# ── Load dataset for texts ─────────────────────────────────────────────────
-print("Loading OpenAlex dataset for texts...")
-df = pd.read_parquet("/home/ubuntu/lis/OpenAlex_LIS_1975_2024.parquet")
-id_to_text = {}
-for _, row in df.iterrows():
-    title    = str(row['title'] or '').strip()
-    abstract = str(row['abstract'] or '').strip()
-    text = (title + '. ' + abstract).strip() if abstract else title
-    id_to_text[row['id']] = text if text else 'unknown'
-
-# Collect all unique paper IDs needed
-needed_ids = set(pairs_df['citing_id'].tolist()) | set(pairs_df['cited_id'].tolist())
-all_ids    = [pid for pid in needed_ids if pid in id_to_text]
-all_texts  = [id_to_text[pid] for pid in all_ids]
-print(f"  {len(all_ids):,} unique papers to encode")
-
-# ── Load checkpoint ────────────────────────────────────────────────────────
-if os.path.exists(PROGRESS_FILE):
-    with open(PROGRESS_FILE) as f:
-        progress = json.load(f)
-    start_chunk = progress['chunks_done']
-    print(f"Resuming from chunk {start_chunk + 1}")
-else:
-    start_chunk = 0
-    progress = {'chunks_done': 0, 'total_chunks': 0}
-
-# ── SBERT model ────────────────────────────────────────────────────────────
-print("Loading SBERT model...")
 from sentence_transformers import SentenceTransformer
-model = SentenceTransformer('all-MiniLM-L6-v2')
+from sklearn.metrics.pairwise import cosine_similarity
+
+WORK_DIR   = Path("/home/ubuntu/oa_work")
+OUT_DIR    = WORK_DIR / "results"
+CKPT_DIR   = WORK_DIR / "checkpoints"
+CHUNK_SIZE = 5000
+
+# ── Load texts ───────────────────────────────────────────────────────────────
+print("Loading texts...")
+texts_df = pd.read_parquet(OUT_DIR / "oa_texts.parquet")
+texts    = texts_df["text"].tolist()
+ids      = texts_df["id"].tolist()
+N        = len(texts)
+print(f"  {N:,} texts to encode")
+
+# ── Load model ───────────────────────────────────────────────────────────────
+print("Loading SBERT model (all-MiniLM-L6-v2)...")
+model = SentenceTransformer("all-MiniLM-L6-v2")
 print("  Model loaded.")
 
-# ── Encode in chunks ───────────────────────────────────────────────────────
-n = len(all_ids)
-chunks = list(range(0, n, CHUNK_SIZE))
-total_chunks = len(chunks)
-progress['total_chunks'] = total_chunks
+# ── Checkpoint resume ────────────────────────────────────────────────────────
+prog_file = CKPT_DIR / "progress.json"
+if prog_file.exists():
+    with open(prog_file) as f:
+        prog = json.load(f)
+    chunks_done = prog["chunks_done"]
+else:
+    chunks_done = 0
 
-# Load already-encoded embeddings
-embeddings_map = {}
-for c in range(start_chunk):
-    ckpt_file = f"{CKPT_DIR}/chunk_{c:04d}.pkl"
-    if os.path.exists(ckpt_file):
-        with open(ckpt_file, 'rb') as f:
-            chunk_data = pickle.load(f)
-        embeddings_map.update(chunk_data)
+n_chunks = (N + CHUNK_SIZE - 1) // CHUNK_SIZE
+print(f"  Chunks: {n_chunks}  Already done: {chunks_done}")
 
-print(f"Encoding {n:,} texts in {total_chunks} chunks of {CHUNK_SIZE}...")
-for c_idx in range(start_chunk, total_chunks):
-    start = chunks[c_idx]
-    end   = min(start + CHUNK_SIZE, n)
-    chunk_ids   = all_ids[start:end]
-    chunk_texts = all_texts[start:end]
+# ── Encode ───────────────────────────────────────────────────────────────────
+for chunk_idx in range(chunks_done, n_chunks):
+    start = chunk_idx * CHUNK_SIZE
+    end   = min(start + CHUNK_SIZE, N)
+    batch = texts[start:end]
+    embs  = model.encode(batch, batch_size=256, show_progress_bar=False,
+                         convert_to_numpy=True)
+    ckpt_path = CKPT_DIR / f"chunk_{chunk_idx:04d}.npy"
+    np.save(ckpt_path, embs)
+    chunks_done = chunk_idx + 1
+    with open(prog_file, "w") as f:
+        json.dump({"chunks_done": chunks_done, "total_chunks": n_chunks}, f)
+    pct = 100 * end / N
+    print(f"  Chunk {chunk_idx+1}/{n_chunks} ({pct:.1f}%) — {end:,}/{N:,} encoded")
 
-    embs = model.encode(chunk_texts, batch_size=BATCH_SIZE,
-                        show_progress_bar=False, convert_to_numpy=True,
-                        normalize_embeddings=True)
+# ── Assemble full embedding matrix ───────────────────────────────────────────
+print("\nAssembling embedding matrix...")
+parts = []
+for chunk_idx in range(n_chunks):
+    parts.append(np.load(CKPT_DIR / f"chunk_{chunk_idx:04d}.npy"))
+embeddings = np.vstack(parts)
+print(f"  Shape: {embeddings.shape}")
 
-    chunk_data = {pid: embs[i] for i, pid in enumerate(chunk_ids)}
-    ckpt_file = f"{CKPT_DIR}/chunk_{c_idx:04d}.pkl"
-    with open(ckpt_file, 'wb') as f:
-        pickle.dump(chunk_data, f)
+# Map id → embedding index
+id_to_emb = {pid: i for i, pid in enumerate(ids)}
 
-    embeddings_map.update(chunk_data)
-    progress['chunks_done'] = c_idx + 1
-    with open(PROGRESS_FILE, 'w') as f:
-        json.dump(progress, f)
+# ── Load pairs ───────────────────────────────────────────────────────────────
+print("Loading pairs...")
+pairs_df = pd.read_parquet(OUT_DIR / "oa_pairs_features.parquet")
+print(f"  {len(pairs_df):,} pairs")
 
-    pct = 100 * (c_idx + 1) / total_chunks
-    print(f"  Chunk {c_idx+1}/{total_chunks} ({pct:.1f}%) — {end:,}/{n:,} texts encoded")
+# Map pair indices to paper IDs
+data_df = pd.read_parquet(WORK_DIR / "oa_data.parquet")
+idx_to_id = data_df["id"].to_dict()
 
-print(f"All {len(embeddings_map):,} embeddings ready.")
+# ── Compute cosine similarity in batches ─────────────────────────────────────
+print("Computing semantic similarity...")
+BATCH = 10000
+sims = np.zeros(len(pairs_df), dtype=np.float32)
 
-# ── Compute cosine similarities ────────────────────────────────────────────
-print("Computing semantic similarities for all pairs...")
-zero = np.zeros(384, dtype=np.float32)
+citing_ids = [idx_to_id.get(int(i), "") for i in pairs_df["citing_idx"]]
+cited_ids  = [idx_to_id.get(int(i), "") for i in pairs_df["cited_idx"]]
 
-citing_embs = np.array([embeddings_map.get(pid, zero) for pid in pairs_df['citing_id']])
-cited_embs  = np.array([embeddings_map.get(pid, zero) for pid in pairs_df['cited_id']])
+for start in range(0, len(pairs_df), BATCH):
+    end   = min(start + BATCH, len(pairs_df))
+    c_ids = citing_ids[start:end]
+    r_ids = cited_ids[start:end]
+    c_embs = np.array([embeddings[id_to_emb[i]] if i in id_to_emb
+                       else np.zeros(384) for i in c_ids])
+    r_embs = np.array([embeddings[id_to_emb[i]] if i in id_to_emb
+                       else np.zeros(384) for i in r_ids])
+    # Row-wise cosine similarity
+    norms_c = np.linalg.norm(c_embs, axis=1, keepdims=True) + 1e-10
+    norms_r = np.linalg.norm(r_embs, axis=1, keepdims=True) + 1e-10
+    sims[start:end] = (c_embs / norms_c * r_embs / norms_r).sum(axis=1)
+    if start % 100000 == 0:
+        print(f"  {start:,}/{len(pairs_df):,}")
 
-# Embeddings are already L2-normalized, so dot product = cosine similarity
-sims = (citing_embs * cited_embs).sum(axis=1)
-pairs_df['semantic_similarity'] = sims.astype(np.float32)
+pairs_df["semantic_similarity"] = sims
 
-print(f"  Mean sim (positive): {pairs_df.loc[pairs_df['label']==1,'semantic_similarity'].mean():.4f}")
-print(f"  Mean sim (negative): {pairs_df.loc[pairs_df['label']==0,'semantic_similarity'].mean():.4f}")
+# ── Stats ────────────────────────────────────────────────────────────────────
+pos_sim = sims[pairs_df["label"] == 1].mean()
+neg_sim = sims[pairs_df["label"] == 0].mean()
+print(f"\nMean cosine sim — positive: {pos_sim:.4f}  negative: {neg_sim:.4f}")
 
-# ── Save ───────────────────────────────────────────────────────────────────
-out = f"{OUTPUT_DIR}/oa_pairs_with_features.pkl"
-pairs_df.to_pickle(out)
-print(f"Saved: {out}")
-print("Stage 2 complete.")
+# ── Save ─────────────────────────────────────────────────────────────────────
+out_path = OUT_DIR / "oa_pairs_with_sbert.parquet"
+pairs_df.to_parquet(out_path, index=False)
+print(f"Saved: {out_path}  ({out_path.stat().st_size/1e6:.1f} MB)")
+
+sbert_stats = {
+    "n_texts_encoded": int(N),
+    "embedding_dim": int(embeddings.shape[1]),
+    "mean_sim_positive": round(float(pos_sim), 4),
+    "mean_sim_negative": round(float(neg_sim), 4),
+}
+with open(OUT_DIR / "oa_sbert_stats.json", "w") as f:
+    json.dump(sbert_stats, f, indent=2)
+print("Saved: oa_sbert_stats.json")
+print(json.dumps(sbert_stats, indent=2))
