@@ -71,6 +71,20 @@ Best model: **Multi-Layer Perceptron (MLP) Neural Network**, AUC = **0.9906**
 | Gradient Boosting | 0.9904 | 0.9542 | 0.9540 | 0.9511 | 0.9573 | 0.9081 |
 | **MLP Neural Network** | **0.9906** | **0.9540** | **0.9539** | **0.9518** | **0.9562** | **0.9078** |
 
+All results are 5-fold stratified cross-validation on 500,000 pairs (250,000 positive + 250,000 negative).
+
+**Feature ablation (Logistic Regression, leave-one-out AUC):**
+
+| Feature removed | AUC | Drop |
+|---|---|---|
+| None (all features) | 0.9868 | — |
+| semantic\_similarity | 0.8709 | −0.0159 |
+| prestige | 0.9618 | −0.0250 |
+| temporal\_distance | 0.9576 | −0.0292 |
+| coauth\_distance | 0.9859 | −0.0009 |
+| Semantic similarity only | 0.9513 | — |
+| Network features only | 0.8512 | — |
+
 ## Results (OpenAlex)
 
 Best model: **Gradient Boosting**, AUC = **0.9979**
