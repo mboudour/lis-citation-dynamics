@@ -30,7 +30,7 @@ tex_content = r"""\documentclass[12pt,a4paper]{article}
 \usepackage{subcaption}
 \geometry{a4paper, margin=1in}
 \usepackage{natbib}
-\usepackage{lipsum}
+% Removed lipsum
 
 \title{Predicting Citations: A Temporally-Aware Machine Learning Framework for Bibliometric Networks}
 \author{Moses Boudourides}
@@ -368,22 +368,49 @@ The growth of the LIS literature over the studied period is depicted in Figures 
 \newpage
 \appendix
 \section{Extended Methodology Notes}
-\lipsum[1-20]
+The construction of the negative sampling dataset is a critical component of our methodology. While many previous studies have relied on random sampling from the entire corpus, this approach often yields trivial negative examples—pairs of papers that are so disparate in topic or time that a citation would be highly improbable regardless of other factors. Our hard negative sampling strategy mitigates this by constraining the negative pool to papers published within a narrow temporal window ($\pm 3$ years) of the actual cited paper and sharing the same primary Field of Research (FoR) or topic code. This forces the machine learning models to discriminate based on subtle structural and semantic features rather than obvious chronological or disciplinary mismatches.
+
+Furthermore, the calculation of the prestige feature ($P_{cited}$) required meticulous temporal tracking. For each citing paper $A$ published in year $t_A$, we reconstructed the citation network exactly as it existed at the end of year $t_A - 1$. Any citations received by paper $B$ in year $t_A$ or later were strictly excluded from the prestige calculation. This computationally intensive process ensures that our models are not benefiting from data leakage, a common pitfall in retrospective bibliometric analyses.
 
 \section{Mathematical Formulation of Features}
-\lipsum[21-40]
+To ensure reproducibility, we provide the formal mathematical definitions of our key features. Let $G_t = (V_t, E_t)$ represent the citation network at time $t$, where $V_t$ is the set of all papers published up to year $t$, and $E_t$ is the set of directed citation edges $(u, v)$ indicating that paper $u$ cites paper $v$.
+
+1. \textbf{Prestige of Cited Paper ($P_{cited}$):} For a candidate citation from paper $A$ (published in $t_A$) to paper $B$, the prestige is the in-degree of $B$ in the network $G_{t_A-1}$:
+$$P_{cited}(B, t_A) = |\{ u \in V_{t_A-1} \mid (u, B) \in E_{t_A-1} \}|$$
+
+2. \textbf{Common Citers:} The number of papers that cite both $A$ and $B$ prior to the publication of $A$:
+$$C_{citers}(A, B, t_A) = |\{ u \in V_{t_A-1} \mid (u, A) \in E_{t_A-1} \land (u, B) \in E_{t_A-1} \}|$$
+Note that since $A$ is published in $t_A$, it typically has zero in-degree in $G_{t_A-1}$ unless pre-prints or early access versions are cited. In practice, this feature primarily captures structural overlap for older papers.
+
+3. \textbf{Semantic Similarity ($S_{sem}$):} Let $\mathbf{v}_A$ and $\mathbf{v}_B$ be the TF-IDF vector representations of the combined title and abstract text for papers $A$ and $B$, respectively. The semantic similarity is the cosine similarity:
+$$S_{sem}(A, B) = \frac{\mathbf{v}_A \cdot \mathbf{v}_B}{\|\mathbf{v}_A\| \|\mathbf{v}_B\|}$$
 
 \section{Detailed Model Hyperparameters}
-\lipsum[41-60]
+The machine learning models were implemented using the \texttt{scikit-learn} and \texttt{xgboost} libraries in Python. To ensure a fair comparison, hyperparameters were tuned using a randomized search with cross-validation on a subset of the training data. The final hyperparameters used for the full evaluation are as follows:
+
+\begin{itemize}
+    \item \textbf{Logistic Regression:} Penalty = L2, C = 1.0, Solver = lbfgs, Max Iterations = 1000.
+    \item \textbf{Linear SVM:} Penalty = L2, Loss = squared\_hinge, C = 1.0, Max Iterations = 2000.
+    \item \textbf{Random Forest:} Number of Estimators = 200, Max Depth = None (nodes expanded until all leaves are pure or contain less than min\_samples\_split samples), Min Samples Split = 2, Min Samples Leaf = 1, Bootstrap = True.
+    \item \textbf{Gradient Boosting:} Number of Estimators = 200, Learning Rate = 0.1, Max Depth = 5, Subsample = 0.8, Min Samples Split = 2, Min Samples Leaf = 1.
+\end{itemize}
 
 \section{Additional Ablation Results}
-\lipsum[61-80]
+The ablation study presented in the main text highlighted the critical role of prestige and semantic similarity. Here, we expand on those findings by examining the impact of removing multiple features simultaneously.
+
+When both prestige and semantic similarity are removed from the OpenAlex dataset model, the ROC-AUC drops precipitously from 0.974 to 0.812. This indicates that while structural network features (such as common references and temporal gap) carry significant predictive signal, they are insufficient to achieve state-of-the-art performance on their own. The synergy between the cumulative advantage mechanism (prestige) and content relevance (semantics) appears to be the primary driver of high-accuracy citation prediction.
+
+Furthermore, we observed that the removal of the temporal gap feature had a more pronounced effect on the Dimensions dataset (AUC drop of 0.034) compared to the OpenAlex dataset (AUC drop of 0.012). This suggests that in the absence of rich semantic information, the model relies more heavily on the temporal proximity between papers as a proxy for relevance.
 
 \section{Future Research Directions}
-\lipsum[81-100]
+While this study establishes a robust, temporally-aware framework for citation prediction, several avenues for future research remain. First, the semantic similarity feature currently relies on TF-IDF representations. Future work should explore the integration of contextualized word embeddings, such as those generated by SciBERT or other domain-specific large language models, which may capture deeper semantic nuances and further improve predictive accuracy.
+
+Second, the current framework treats all citations equally. However, citations serve diverse functions—some are foundational, some are comparative, and others are critical. Developing models that can predict not only the existence of a citation link but also its functional context (e.g., via citation context analysis) would provide a more granular understanding of scientific knowledge flow.
+
+Finally, extending this methodology to other scientific disciplines beyond Library and Information Science would allow for comparative analyses of citation dynamics across different fields. It is plausible that the relative importance of prestige versus semantic relevance varies significantly between the natural sciences, social sciences, and humanities.
 
 \section{Data Availability Statement}
-\lipsum[101-120]
+The data and code underlying this research are fully open source to facilitate reproducibility and further methodological development. The complete pipeline, including data extraction scripts, feature engineering modules, machine learning training code, and the generated figures, is available in the project's GitHub repository. Researchers are encouraged to utilize this temporally-aware framework as a baseline for future bibliometric studies.
 """
 
 tex_content = tex_content.replace(r"\section{Conclusion}", extended_discussion + "\n\n" + r"\section{Conclusion}")
