@@ -1,0 +1,19 @@
+{
+  "dataset": "Dimensions",
+  "n_articles": 259220,
+  "year_min": 1975,
+  "year_max": 2024,
+  "n_positive_pairs": 331047,
+  "n_negative_pairs": 331047,
+  "n_total_pairs": 662094,
+  "features": [
+    "prestige_cited",
+    "temporal_gap",
+    "common_refs",
+    "jaccard_refs",
+    "common_citers"
+  ],
+  "hard_negatives": true,
+  "year_capped_prestige": true,
+  "seed": 42
+}

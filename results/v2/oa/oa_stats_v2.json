@@ -1,0 +1,20 @@
+{
+  "dataset": "OpenAlex",
+  "n_articles": 168901,
+  "year_min": 1975,
+  "year_max": 2024,
+  "n_positive_pairs": 239349,
+  "n_negative_pairs": 239349,
+  "n_total_pairs": 478698,
+  "features": [
+    "prestige_cited",
+    "activity_citing",
+    "temporal_gap",
+    "common_refs",
+    "jaccard_refs",
+    "common_citers"
+  ],
+  "hard_negatives": true,
+  "year_capped_prestige": true,
+  "seed": 42
+}
