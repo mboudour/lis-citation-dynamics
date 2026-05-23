@@ -2,7 +2,7 @@
 
 **Predicting Citation Links in Library and Information Science: Where Network Science Meets Machine Learning**
 
-Moses A. Boudourides · Giannis Tsakonas
+Moses Boudourides
 
 ---
 
@@ -135,6 +135,6 @@ dimcli>=1.0
 
 ## Copyright
 
-© 2026 Moses A. Boudourides & Giannis Tsakonas. All rights reserved.
+© 2026 Moses Boudourides. All rights reserved.
 
 This repository and its contents are made available for academic peer review purposes only. No part of this work may be reproduced, distributed, or used in any form without the express written permission of the authors.
