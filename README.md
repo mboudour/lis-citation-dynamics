@@ -2,7 +2,7 @@
 
 **Predicting Citation Links in Library and Information Science: Where Network Science Meets Machine Learning**
 
-Moses Boudourides and Giannis Tsakonas
+By Moses Boudourides
 
 ---
 
