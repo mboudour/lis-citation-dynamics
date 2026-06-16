@@ -33,10 +33,6 @@ Ten thematic bibliographic datasets are retrieved from Dimensions.ai using keywo
 | Humanities | archaeology | 60,498 | 41,941 (69.3%) | 28,870 (47.7%) |
 | Humanities | art history | 68,288 | 59,828 (87.6%) | 29,644 (43.4%) |
 
-For each dataset, two files are saved to `computations/data_collection/data/`:
-1. `Dimensions_{name}_1975_2024_raw.json.gz` — complete raw API response
-2. `Dimensions_{name}_1975_2024.parquet` — processed: `id`, `year`, `title`, `abstract`, `reference_ids`
-
 ---
 
 ## Data Collection
