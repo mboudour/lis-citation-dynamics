@@ -34,7 +34,7 @@ HERE      = Path(__file__).parent
 GRAPH_DIR = HERE / "nx_citation_graphs"
 
 DATASETS = [
-    ("dark_matter",                "Science",        "dark matter"),
+    ("darkmatter",                 "Science",        "dark matter"),
     ("LIS",                        "Science",        "information literacy + LIS"),
     ("fatigue_crack",              "Engineering",    "fatigue crack"),
     ("environmental_engineering",  "Engineering",    "environmental engineering"),

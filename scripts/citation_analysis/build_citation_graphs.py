@@ -43,7 +43,7 @@ GRAPH_DIR = HERE / "nx_citation_graphs"
 GRAPH_DIR.mkdir(parents=True, exist_ok=True)
 
 DATASETS = [
-    "dark_matter",
+    "darkmatter",
     "LIS",
     "fatigue_crack",
     "environmental_engineering",

@@ -45,43 +45,9 @@ All datasets are fetched using `scripts/data_collection/fetch_dimensions_keyword
 
 ## Citation Graph Construction
 
-Citation graphs are built as directed acyclic graphs (DAGs) using NetworkX and pickled to `citation_analysis_scripts/nx_citation_graphs/`:
-
-```bash
-cd computations/citation_analysis_scripts
-python build_citation_graphs.py
-```
-
-Each graph has:
+Citation graphs are built as directed acyclic graphs (DAGs) using NetworkX. Each graph has:
 - **Nodes**: paper IDs present in the corpus, with `year` attribute
 - **Edges**: directed edge (citing → cited) for every internal reference, with the DAG constraint that `year(cited) < year(citing)`
-
-Citation graph statistics (nodes, edges, density, weak components, citing/cited nodes, degree distributions, clustering coefficient) are computed by:
-
-```bash
-python citation_graph_stats.py
-```
-
----
-
-## Folder Structure
-
-```
-Citation Dynamics/
-├── computations/
-│   ├── data_collection/
-│   │   ├── data/                              # raw json.gz + processed parquet files
-│   │   └── data_collection_scripts/
-│   │       ├── fetch_dimensions_keywords.py   # master fetch script (all 10 datasets)
-│   │       ├── fetch_dimensions_*.py          # individual dataset scripts
-│   │       ├── Dim_key.txt                    # Dimensions API key (not committed)
-│   │       └── OA_key.txt                     # OpenAlex API key (not committed)
-│   └── citation_analysis_scripts/
-│       ├── build_citation_graphs.py           # builds NetworkX DAGs, pickles to nx_citation_graphs/
-│       ├── citation_graph_stats.py            # computes and saves graph statistics table
-│       └── nx_citation_graphs/                # pickled NetworkX graphs (not committed)
-└── manuscript/                                # manuscript draft and figures
-```
 
 ---
 
