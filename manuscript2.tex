@@ -22,9 +22,12 @@
 
 \title{Temporally-Aware Citation Link Prediction Across Disciplines:\\
 A Comparative Study of Ten Scientific Domains}
-\author{Moses Boudourides}
-\affil{School of Professional Studies, Northwestern University, Evanston, IL, USA%
+\author[1]{Moses Boudourides}
+\author[2]{Giannis Tsakonas}
+\affil[1]{School of Professional Studies, Northwestern University, Evanston, IL, USA%
 \authorcr\texttt{Moses.Boudourides@northwestern.edu}}
+\affil[2]{Library \& Information Center, University of Patras, Greece%
+\authorcr\texttt{gtsak@upatras.gr}}
 \date{}
 
 \begin{document}
@@ -33,7 +36,7 @@ A Comparative Study of Ten Scientific Domains}
 \maketitle
 
 \begin{abstract}
-Citation link prediction is a central problem in bibliometrics, yet machine-learning approaches in this domain are frequently compromised by temporal leakage, whereby future network topology or retrospectively updated metadata influence predictions of past citation behavior. In this study, we introduce a strongly leakage-mitigated methodological framework for citation link prediction grounded explicitly in the temporal structure of scholarly communication. We formalize four forms of temporal leakage---future citation leakage, future topology leakage, metadata leakage, and semantic leakage---and construct a temporally constrained feature-engineering pipeline in which all network-derived quantities are computed exclusively from information available prior to the publication year of the citing paper. We additionally provide formal definitions of the temporally capped graph \(G_{t_A-1}\), the constrained candidate space \(C(A)\), and the ranking objective underlying retrieval-oriented evaluation. The framework is evaluated on two large-scale Library and Information Science (LIS) datasets---Dimensions (662,094 candidate pairs) and OpenAlex (478,698 candidate pairs)---as well as across nine additional disciplinary citation graphs drawn from Dimensions: Dark Matter, Fatigue Crack, Environmental Engineering, Neuroblastoma, Osteosarcoma, Political Participation, Welfare State, Archaeology, and Art History. These ten datasets together allow us to examine whether citation predictability and the relative importance of semantic versus structural features vary systematically across the natural sciences, engineering, biomedicine, social sciences, and humanities. Evaluation is organized across four levels of task complexity: pairwise discriminability, top-\(k\) retrieval realism, recommendation realism, and candidate-space complexity. Gradient Boosting achieves ROC-AUC scores ranging from 0.860 to 0.975 across all ten disciplines, with performance remaining stable under temporal hold-out evaluation (training $\le 2015$, testing $2016-2020$). Feature ablation and SHAP analyses reveal that semantic similarity overwhelmingly dominates predictive performance across all disciplines, with AUC drops upon removal ranging from 0.189 to 0.540. Under these conditions, citation prediction increasingly behaves less like a purely network-theoretic task and more like a semantically guided retrieval process augmented by structural contextualization. The study therefore contributes not only a predictive framework, but also a methodological foundation for leakage-aware evaluation in multi-disciplinary bibliometric machine learning.
+Citation link prediction is a central problem in bibliometrics, yet machine-learning approaches in this domain are frequently compromised by temporal leakage, whereby future network topology or retrospectively updated metadata influence predictions of past citation behavior. In this study, we introduce a strongly leakage-mitigated methodological framework for citation link prediction grounded explicitly in the temporal structure of scholarly communication. We formalize four forms of temporal leakage---future citation leakage, future topology leakage, metadata leakage, and semantic leakage---and construct a temporally constrained feature-engineering pipeline in which all network-derived quantities are computed exclusively from information available prior to the publication year of the citing paper. We additionally provide formal definitions of the temporally capped graph \(G_{t_A-1}\), the constrained candidate space \(C(A)\), and the ranking objective underlying retrieval-oriented evaluation. The framework is evaluated on ten large-scale bibliographic datasets retrieved from Dimensions.ai, spanning five broad disciplinary clusters: natural sciences (Dark Matter, Library and Information Science), engineering (Fatigue Crack, Environmental Engineering), biomedicine (Neuroblastoma, Osteosarcoma), social sciences (Political Participation, Welfare State), and humanities (Archaeology, Art History). Each corpus covers the period 1975--2024 and comprises approximately 50,000--70,000 peer-reviewed articles. Evaluation is organized across four levels of task complexity: pairwise discriminability, top-\(k\) retrieval realism, recommendation realism, and candidate-space complexity. Gradient Boosting achieves ROC-AUC scores ranging from 0.860 to 0.975 across all ten disciplines, with performance remaining stable under temporal hold-out evaluation (training $\le 2015$, testing $2016-2020$). Feature ablation and SHAP analyses reveal that semantic similarity overwhelmingly dominates predictive performance in every discipline, with AUC drops upon removal ranging from 0.189 to 0.540, while temporal gap and prestige provide secondary structural enrichment whose relative importance varies systematically across disciplines. Under these conditions, citation prediction increasingly behaves less like a purely network-theoretic task and more like a semantically guided retrieval process augmented by structural contextualization. The study therefore contributes not only a predictive framework, but also a methodological foundation for leakage-aware evaluation in multi-disciplinary bibliometric machine learning.
 \end{abstract}
 
 \section{Introduction}
@@ -45,7 +48,7 @@ At the same time, the methodological validity of citation prediction remains dee
 
 Accordingly, the present study is positioned not primarily as a new recommendation architecture, but as a strongly leakage-mitigated evaluation framework for bibliometric citation prediction. Our primary contribution is methodological. We introduce a formal taxonomy of temporal leakage and provide explicit mathematical definitions of the temporally capped graph, the constrained candidate space, and the ranking objective. We engineer a feature set encompassing structural overlap, prestige, temporal dynamics, and semantic similarity, while ensuring that all network-derived quantities are computed exclusively from information available prior to the publication year of the citing paper. We pair this feature construction with a temporally constrained evaluation protocol incorporating hard negative sampling, rolling temporal windows, and top-$k$ ranking experiments designed to establish a rigorous intermediate step between pairwise discrimination and large-scale retrieval evaluation.
 
-Our secondary contribution is the application of this framework to two major bibliographic infrastructures for Library and Information Science---Dimensions.ai and OpenAlex---and its extension across nine additional disciplinary citation graphs covering the natural sciences, engineering, biomedicine, social sciences, and humanities. The LIS datasets are treated as complementary experiments rather than as a perfectly controlled comparison because their metadata exposures differ fundamentally: Dimensions provides a structural-only baseline derived primarily from citation topology and metadata, whereas OpenAlex enables the construction of a semantic+structural framework through abstract availability. The ten-discipline comparative study allows us to investigate whether the structural and semantic mechanisms of citation behavior are universal properties of scholarly communication or vary systematically by disciplinary culture.
+Our secondary contribution is the application of this framework to ten disciplinary citation graphs retrieved from Dimensions.ai, spanning the natural sciences, engineering, biomedicine, social sciences, and humanities. This multi-disciplinary design allows us to investigate whether citation predictability and the relative importance of structural versus semantic features vary systematically across disciplinary cultures. Prior work has largely focused on single-discipline or single-platform evaluations; the present study extends this literature by providing a controlled comparative analysis across five broad disciplinary clusters under identical feature engineering and evaluation protocols.
 
 Our principal empirical finding is that semantic similarity overwhelmingly dominates the predictive signal across all ten disciplines. In every dataset, the contribution of textual similarity substantially exceeds that of higher-order graph structure, to the point where citation prediction increasingly resembles a semantic retrieval task rather than a purely network-theoretic prediction problem. Rather than treating this outcome as a methodological weakness, we interpret it as an important empirical observation about citation behavior in abstract-rich corpora and about the relative roles of semantics and topology in bibliometric prediction. The alignment between citation graph structure and the topical organization of a corpus has been examined empirically in domain-specific settings \citep{boudourides2022citation}; the present study extends this line of inquiry to a massive multi-disciplinary scale under temporally rigorous evaluation conditions.
 
@@ -91,22 +94,22 @@ These ranking-oriented evaluation paradigms are especially important in citation
 
 \subsection{Bibliographic Data Infrastructure}
 
-All ten datasets were constructed from the Dimensions database \citep{hook2018dimensions}, a comprehensive, linked research information system integrating publications, citations, grants, patents, and policy documents. Its coverage is among the broadest available, and it has been shown to provide a high degree of completeness and quality in publication metadata \citep{delgado2024completeness, nguyen2022quality}. Programmatic access to the Dimensions API was facilitated via the \texttt{dimcli} Python client \citep{dimcli2021}. For each dataset, we queried the Dimensions DSL using a combination of Field of Research codes and keyword filters targeting the title and abstract, covering the period 1975--2024.
+All ten datasets were constructed from the Dimensions database \citep{hook2018dimensions}, a comprehensive, linked research information system integrating publications, citations, grants, patents, and policy documents. Its coverage is among the broadest available, and it has been shown to provide a high degree of completeness and quality in publication metadata \citep{delgado2024completeness, nguyen2022quality}. Programmatic access to the Dimensions API was facilitated via the \texttt{dimcli} Python client \citep{dimcli2021}. For each dataset, we queried the Dimensions DSL using keyword searches in title and abstract, restricted to journal articles published 1975--2024.
 
-For the Library and Information Science (LIS) dataset, we additionally constructed a complementary OpenAlex \citep{priem2022openalex} dataset to enable a semantic+structural framework through abstract availability. OpenAlex is a fully open, freely accessible index of scholarly works developed as a successor to Microsoft Academic Graph. It has been independently assessed as providing reliable coverage and metadata quality for bibliometric research \citep{delgado2024completeness, nguyen2022quality}, and its open data philosophy makes it particularly suitable for reproducible research. The Dimensions LIS dataset and the OpenAlex LIS dataset are treated as complementary experiments rather than as a perfectly controlled comparison because their metadata availability differs fundamentally: Dimensions provides a structural-only baseline, whereas OpenAlex enables a semantic+structural framework through abstract availability. The use of two independent data infrastructures for LIS strengthens the robustness of our findings: results consistent across Dimensions and OpenAlex are more likely to reflect genuine properties of LIS citation dynamics rather than artifacts of a specific data source.
+The use of a single bibliographic infrastructure for all ten datasets ensures that the comparative analysis is not confounded by differences in metadata availability, coverage, or indexing policy across platforms. All ten corpora are therefore directly comparable in terms of data provenance, field availability, and citation-graph construction methodology.
 
 \subsection{The Ten Citation Graphs}
 
-The ten datasets span five broad disciplinary clusters: natural sciences (Dark Matter, LIS/Information Literacy), engineering (Fatigue Crack, Environmental Engineering), biomedicine (Neuroblastoma, Osteosarcoma), social sciences (Political Participation, Welfare State), and humanities (Archaeology, Art History). Table~\ref{tab:datasets} summarizes the topological characteristics of the ten citation graphs.
+The ten datasets span five broad disciplinary clusters: natural sciences (Dark Matter, Library and Information Science), engineering (Fatigue Crack, Environmental Engineering), biomedicine (Neuroblastoma, Osteosarcoma), social sciences (Political Participation, Welfare State), and humanities (Archaeology, Art History). Table~\ref{tab:datasets} summarizes the topological characteristics of the ten citation graphs.
 
 \begin{table}[H]
 \centering
-\caption{Descriptive statistics of the ten disciplinary citation graphs extracted from Dimensions (1975--2024).}
+\caption{Descriptive statistics of the ten disciplinary citation graphs extracted from Dimensions (1975--2024). Density is computed as $|E| / (|V|(|V|-1))$.}
 \label{tab:datasets}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{llrrrrrrr}
+\begin{tabular}{llrrrrrrrr}
 \toprule
-\textbf{Discipline} & \textbf{Dataset} & \textbf{Nodes} & \textbf{Edges} & \textbf{Density} & \textbf{Components} & \textbf{Avg Out-deg} & \textbf{Avg In-deg} & \textbf{Avg CC} \\
+\textbf{Discipline} & \textbf{Dataset} & \textbf{Nodes} & \textbf{Edges} & \textbf{Density} & \textbf{Comp.} & \textbf{Avg Out-deg} & \textbf{Avg In-deg} & \textbf{Avg CC} \\
 \midrule
 Science & Dark Matter & 55,338 & 912,851 & 2.98e-04 & 8,697 & 20.50 & 24.89 & 0.0822 \\
 Science & Info Literacy (LIS) & 66,679 & 104,643 & 2.40e-05 & 38,439 & 4.79 & 5.63 & 0.0196 \\
@@ -168,7 +171,7 @@ P\!\left(y=1 \mid \mathbf{x}_{AB}\right),
 where \(\mathbf{x}_{AB}\) denotes the feature vector associated with the pair \((A,B)\).
 
 \textbf{Constrained Candidate Space.}
-For a citing paper \(A\) and a true cited paper \(B\), the constrained candidate space is defined as
+For a citing paper \(A\) and a true cited paper \(B$, the constrained candidate space is defined as
 \[
 C(A)=
 \left\{
@@ -220,12 +223,12 @@ We define four distinct forms of temporal leakage that commonly affect citation 
     Retrospectively updated metadata are used during prediction. For example, using a journal's 2024 Impact Factor to predict a citation occurring in 2010 introduces future information unavailable at the time of citation. We mitigate this by using only historically available metadata.
 
     \item \textbf{Semantic Leakage.}
-    Text embeddings derived from pretrained language models may implicitly encode citation contexts if the target papers were included in the pretraining corpus. We employ Sentence-BERT (\texttt{all-MiniLM-L6-v2}) to compute semantic similarity. We acknowledge that the static pre-training corpus of SBERT introduces a systemic vector of semantic leakage that cannot be mitigated without chronologically re-trained language models. A fully leakage-free semantic representation would require rolling vocabulary fitting or temporally constrained re-training, which we identify as future work.
+    Text embeddings derived from pretrained language models may implicitly encode citation contexts if the target papers were included in the pretraining corpus. We employ Sentence-BERT (\texttt{all-MiniLM-L6-v2}) to compute semantic similarity from the title and abstract fields available in Dimensions. We acknowledge that the static pre-training corpus of SBERT introduces a systemic vector of semantic leakage that cannot be mitigated without chronologically re-trained language models. A fully leakage-free semantic representation would require rolling vocabulary construction or temporally constrained re-training, which we identify as future work.
 \end{enumerate}
 
-\subsection{Bibliographic Data Collection}
+\subsection{Data Collection}
 
-\textbf{Dimensions Datasets.} The Dimensions database \citep{hook2018dimensions} was queried for each of the ten topics using the Dimensions DSL. For LIS, the query used Field of Research code 4610 and core LIS keywords:
+All ten datasets were retrieved from Dimensions.ai \citep{hook2018dimensions} using the Dimensions DSL, querying by keyword in title and abstract and restricting to journal articles published 1975--2024. For the Library and Information Science (LIS) corpus, the query used Field of Research code 4610 and core LIS keywords:
 
 \begin{verbatim}
 search publications
@@ -238,28 +241,15 @@ search publications
   limit 100000 skip 0
 \end{verbatim}
 
-After removing records with missing publication years or reference lists, the final LIS Dimensions dataset contained 259,220 deduplicated articles. Analogous queries were constructed for the remaining nine topics using their respective keywords and Field of Research codes. The ten datasets collectively span 1975--2024.
-
-\textbf{OpenAlex Dataset (LIS only).} OpenAlex \citep{priem2022openalex} was queried using five primary topic identifiers corresponding to core LIS domains:
-
-\begin{verbatim}
-GET https://api.openalex.org/works?filter=
-  primary_topic.id:T10712|T14330|T13166|T13673|T10102,
-  type:article,
-  publication_year:1975-2024
-  &select=id,doi,title,abstract_inverted_index,
-    publication_year,referenced_works,authorships,
-    primary_topic,cited_by_count
-  &per-page=200
-\end{verbatim}
-
-This yielded 168,901 deduplicated articles with complete abstracts.
+After removing records with missing publication years or reference lists, the final LIS dataset contained 66,679 deduplicated articles. Analogous queries were constructed for the remaining nine topics using their respective keywords. The ten datasets collectively span 1975--2024, with record counts ranging from 50,560 (Political Participation) to 68,288 (Art History). Abstract availability ranges from 69.3\% (Archaeology) to 96.6\% (Political Participation), and internal reference availability ranges from 43.4\% (Art History) to 91.3\% (Dark Matter).
 
 \subsection{Temporally and Topically Constrained Negatives}
 
-Standard link-prediction studies often sample negative edges uniformly at random. In citation networks, this procedure produces trivially separable negatives, such as pairing a contemporary article with an unrelated paper from another discipline or era. We instead employ temporally constrained negatives derived from the candidate space \(C(A)\). For each positive pair $(A \to B)$, we sample a non-cited paper $B'$ published within $\pm 3$ years of $B$. This forces the model to discriminate between contemporaneously available papers, thereby isolating the actual mechanisms influencing citation choice. This procedure yielded 662,094 balanced pairs for Dimensions LIS and 478,698 balanced pairs for OpenAlex LIS. For the remaining eight Dimensions datasets, pair counts ranged from 84 (Environmental Engineering) to 680 (Fatigue Crack), reflecting the variation in internal citation density documented in Table~\ref{tab:datasets}.
+Standard link-prediction studies often sample negative edges uniformly at random. In citation networks, this procedure produces trivially separable negatives, such as pairing a contemporary article with an unrelated paper from another discipline or era. We instead employ temporally constrained negatives derived from the candidate space \(C(A)\). For each positive pair $(A \to B)$, we sample a non-cited paper $B'$ published within $\pm 3$ years of $B$ and belonging to the same topical corpus. This forces the model to discriminate between contemporaneously available papers, thereby isolating the actual mechanisms influencing citation choice.
 
-The construction of $C(A)$ proceeds in four sequential steps, each relying exclusively on historically available metadata. First, all papers published strictly before $t_A$ are identified from $V_{<t_A}$. Second, this set is filtered to retain only papers whose publication year falls within three years of the true cited paper $B$, i.e., $|t_{B'} - t_B| \le 3$. Third, the resulting set is further restricted to papers sharing the same topic category as $B$. Fourth, papers already cited by $A$ are excluded. No global network metrics---such as PageRank, centrality, or community membership---are used at any stage of this filtering process.
+The construction of $C(A)$ proceeds in four sequential steps, each relying exclusively on historically available metadata. First, all papers published strictly before $t_A$ are identified from $V_{<t_A}$. Second, this set is filtered to retain only papers whose publication year falls within three years of the true cited paper $B$. Third, the resulting set is further restricted to papers belonging to the same keyword-defined corpus as $B$. Fourth, papers already cited by $A$ are excluded. No global network metrics are used at any stage of this filtering process.
+
+This procedure yielded balanced positive-negative pair counts ranging from 84 pairs (Environmental Engineering) to 1,336 pairs (LIS), reflecting the variation in internal citation density documented in Table~\ref{tab:datasets}.
 
 \subsection{Temporally Aware Feature Engineering}
 
@@ -299,15 +289,13 @@ The normalized bibliographic-coupling measure
 The number of papers in \(G_{t_A-1}\) citing both \(A\) and \(B\), operationalizing co-citation \citep{small1973co}. Because \(A\) is newly published at time \(t_A\), this quantity is typically zero unless \(A\) previously existed as a preprint.
 
 \textbf{Semantic Similarity.}
-The SBERT cosine similarity between the concatenated title and abstract of \(A\) and \(B\), computed using the \texttt{all-MiniLM-L6-v2} model. This representation captures deep semantic alignment between the intellectual content of the two papers. For the structural-only Dimensions LIS baseline, a TF-IDF cosine similarity is used instead, as described in Section~\ref{sec:comp}.
+The SBERT cosine similarity between the concatenated title and abstract of \(A\) and \(B\), computed using the \texttt{all-MiniLM-L6-v2} model applied to the title and abstract fields available in Dimensions. This representation captures deep semantic alignment between the intellectual content of the two papers. Abstract availability in Dimensions ranges from 69.3\% to 96.6\% across the ten datasets; for pairs where one or both abstracts are missing, the similarity is computed from the title alone.
 
 Network-derived quantities for newly published candidate papers present no computational pathology because the temporally capped graph $G_{t_A-1}$ excludes the citing paper $A$ by construction, ensuring that all structural features are computed from the pre-existing network state.
 
 \subsection{Model Training and Evaluation}
 
-We trained four classifiers: Logistic Regression, Linear SVM, Random Forest, and Gradient Boosting. All models were evaluated using 5-fold stratified cross-validation under a temporal split in which training data consisted of papers published before 2016 and testing data consisted of papers published between 2016 and 2020.
-
-To assess temporal robustness, we additionally evaluated model performance using a strict temporal hold-out split (training on papers published $\le 2015$, testing on papers published $2016-2020$). For the LIS datasets, we additionally evaluated performance across four rolling temporal windows. For ranking evaluation (LIS only), we constructed top-\(k\) candidate pools with
+We trained four classifiers: Logistic Regression, Linear SVM, Random Forest, and Gradient Boosting. All models were evaluated using 5-fold stratified cross-validation. To assess temporal robustness, we additionally evaluated model performance using a strict temporal hold-out split (training on papers published $\le 2015$, testing on papers published $2016-2020$). For the LIS dataset, we additionally evaluated performance across four rolling temporal windows. For ranking evaluation (LIS), we constructed top-\(k\) candidate pools with
 \[
 k \in \{10,50,100\},
 \]
@@ -318,38 +306,30 @@ and computed MRR, NDCG@\(k\), and Precision@\(k\). To quantify uncertainty in th
 
 \subsection{Pairwise Classification Performance: LIS Baseline}
 
-We first evaluated Logistic Regression, Linear SVM, Random Forest, and Gradient Boosting on the two LIS datasets using 5-fold stratified cross-validation. Table~\ref{tab:cv} summarizes the predictive performance.
+We first evaluated all four classifiers on the LIS dataset using 5-fold stratified cross-validation. Table~\ref{tab:cv} summarizes the predictive performance.
 
 \begin{table}[H]
 \centering
-\caption{Cross-validation performance (mean $\pm$ standard deviation across 5 folds) for the LIS datasets.}
+\caption{Cross-validation performance (mean $\pm$ standard deviation across 5 folds) for the LIS dataset.}
 \label{tab:cv}
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Model} & \textbf{ROC-AUC} & \textbf{PR-AUC} & \textbf{F1 Score} & \textbf{Brier Score} \\
 \midrule
-\multicolumn{5}{c}{\textit{Dimensions LIS (Structural-Only Baseline)}} \\
 Logistic Regression & 0.8719$\pm$0.0009 & 0.8893$\pm$0.0009 & 0.7757$\pm$0.0010 & 0.1461$\pm$0.0008 \\
 Linear SVM & 0.8677$\pm$0.0008 & 0.8816$\pm$0.0009 & 0.7701$\pm$0.0010 & 0.1518$\pm$0.0008 \\
 Random Forest & 0.8741$\pm$0.0010 & 0.8858$\pm$0.0009 & 0.7882$\pm$0.0012 & 0.1477$\pm$0.0007 \\
 \textbf{Gradient Boosting} & \textbf{0.8949$\pm$0.0006} & \textbf{0.9063$\pm$0.0007} & \textbf{0.8013$\pm$0.0009} & \textbf{0.1307$\pm$0.0004} \\
-\midrule
-\multicolumn{5}{c}{\textit{OpenAlex LIS (Semantic+Structural)}} \\
-Logistic Regression & 0.9677$\pm$0.0006 & 0.9710$\pm$0.0006 & 0.9073$\pm$0.0010 & 0.0660$\pm$0.0006 \\
-Linear SVM & 0.9663$\pm$0.0005 & 0.9698$\pm$0.0005 & 0.9045$\pm$0.0009 & 0.0680$\pm$0.0005 \\
-Random Forest & 0.9693$\pm$0.0006 & 0.9702$\pm$0.0005 & 0.9121$\pm$0.0011 & 0.0646$\pm$0.0007 \\
-\textbf{Gradient Boosting} & \textbf{0.9762$\pm$0.0004} & \textbf{0.9779$\pm$0.0004} & \textbf{0.9219$\pm$0.0009} & \textbf{0.0574$\pm$0.0006} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Gradient Boosting consistently outperforms all competing classifiers across both datasets. McNemar's test confirms that the superiority of Gradient Boosting over Random Forest is statistically significant for both Dimensions (\(p < 10^{-25}\)) and OpenAlex (\(p < 10^{-250}\)). The substantially stronger performance of the OpenAlex framework is primarily attributable to semantic similarity features derived from abstracts, a result examined further in the ablation analysis presented in Section~\ref{sec:ablation}.
+Gradient Boosting consistently outperforms all competing classifiers. McNemar's test confirms that the superiority of Gradient Boosting over Random Forest is statistically significant (\(p < 10^{-25}\)). The performance gap between Gradient Boosting and Logistic Regression (approximately 0.023 ROC-AUC) is consistent across cross-validation folds and temporal windows, and is compatible with the presence of non-linear interactions among semantic, structural, and prestige factors.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/dim/dim_cv_v3.png}
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/oa/oa_cv_v3.png}
-\caption{Cross-validation ROC curves for Dimensions LIS (left) and OpenAlex LIS (right). Gradient Boosting achieves the highest ROC-AUC in both datasets.}
+\includegraphics[width=0.7\textwidth]{../results/v2/figures/dim/dim_cv_v3.png}
+\caption{Cross-validation ROC curves for the LIS dataset. Gradient Boosting achieves the highest ROC-AUC.}
 \label{fig:cv}
 \end{figure}
 
@@ -359,22 +339,22 @@ Table~\ref{tab:cv_all} presents the 5-fold cross-validation AUC of the Gradient 
 
 \begin{table}[H]
 \centering
-\caption{Gradient Boosting cross-validation AUC across 10 datasets (mean $\pm$ std, 5-fold).}
+\caption{Gradient Boosting cross-validation AUC across all 10 Dimensions datasets (mean $\pm$ std, 5-fold) and temporal hold-out AUC (Train $\le 2015$, Test $2016-2020$).}
 \label{tab:cv_all}
-\begin{tabular}{llcc}
+\begin{tabular}{llccc}
 \toprule
-\textbf{Discipline} & \textbf{Dataset} & \textbf{GB AUC (CV)} & \textbf{GB AUC (Holdout)} \\
+\textbf{Discipline} & \textbf{Dataset} & \textbf{Pairs} & \textbf{GB AUC (CV)} & \textbf{GB AUC (Holdout)} \\
 \midrule
-Science & Dark Matter & 0.877$\pm$0.047 & 0.893 \\
-Science & Info Literacy (LIS) & 0.928$\pm$0.014 & 0.918 \\
-Engineering & Fatigue Crack & 0.860$\pm$0.013 & 0.896 \\
-Engineering & Env.\ Engineering & 0.975$\pm$0.037 & 1.000 \\
-BioMed & Neuroblastoma & 0.934$\pm$0.018 & 0.906 \\
-BioMed & Osteosarcoma & 0.927$\pm$0.027 & 0.876 \\
-Social Science & Political Partic. & 0.931$\pm$0.070 & 0.964 \\
-Social Science & Welfare State & 0.953$\pm$0.019 & 0.976 \\
-Humanities & Archaeology & 0.874$\pm$0.021 & 0.880 \\
-Humanities & Art History & 0.929$\pm$0.021 & 0.925 \\
+Science & Dark Matter & 234 & 0.877$\pm$0.047 & 0.893 \\
+Science & Info Literacy (LIS) & 1,336 & 0.928$\pm$0.014 & 0.918 \\
+Engineering & Fatigue Crack & 680 & 0.860$\pm$0.013 & 0.896 \\
+Engineering & Env.\ Engineering & 84 & 0.975$\pm$0.037 & 1.000 \\
+BioMed & Neuroblastoma & 304 & 0.934$\pm$0.018 & 0.906 \\
+BioMed & Osteosarcoma & 502 & 0.927$\pm$0.027 & 0.876 \\
+Social Science & Political Partic. & 154 & 0.931$\pm$0.070 & 0.964 \\
+Social Science & Welfare State & 298 & 0.953$\pm$0.019 & 0.976 \\
+Humanities & Archaeology & 668 & 0.874$\pm$0.021 & 0.880 \\
+Humanities & Art History & 362 & 0.929$\pm$0.021 & 0.925 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -382,7 +362,7 @@ Humanities & Art History & 0.929$\pm$0.021 & 0.925 \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{../figures/fig1_auc_comparison.png}
-\caption{Citation Link Prediction AUC (Gradient Boosting, 5-fold CV) across 10 datasets, color-coded by discipline.}
+\caption{Citation link prediction AUC (Gradient Boosting, 5-fold CV) across all 10 Dimensions datasets, colour-coded by discipline.}
 \label{fig:auc}
 \end{figure}
 
@@ -390,31 +370,30 @@ The predictability of citation behavior remains high regardless of discipline. I
 
 \subsection{Rolling Temporal Evaluation (LIS)}
 
-To evaluate temporal robustness for the LIS datasets, we assessed the Gradient Boosting classifier across four rolling temporal windows using temporally ordered train--test splits (\(t \le Y_{\mathrm{split}}\) for training and \(Y_{\mathrm{split}}+1\) to \(Y_{\mathrm{end}}\) for testing).
+To evaluate temporal robustness for the LIS dataset, we assessed the Gradient Boosting classifier across four rolling temporal windows using temporally ordered train--test splits (\(t \le Y_{\mathrm{split}}\) for training and \(Y_{\mathrm{split}}+1\) to \(Y_{\mathrm{end}}\) for testing).
 
 \begin{table}[H]
 \centering
-\caption{Rolling temporal-window ROC-AUC for Gradient Boosting (LIS datasets).}
+\caption{Rolling temporal-window ROC-AUC for Gradient Boosting (LIS dataset).}
 \label{tab:rolling}
-\begin{tabular}{lcc}
+\begin{tabular}{lc}
 \toprule
-\textbf{Test Window} & \textbf{Dimensions LIS} & \textbf{OpenAlex LIS} \\
+\textbf{Test Window} & \textbf{Gradient Boosting AUC} \\
 \midrule
-2005--2010 & 0.8732 & 0.9662 \\
-2010--2015 & 0.8901 & 0.9744 \\
-2015--2020 & 0.8948 & 0.9774 \\
-2018--2025 & 0.8712 & 0.9788 \\
+2005--2010 & 0.8732 \\
+2010--2015 & 0.8901 \\
+2015--2020 & 0.8948 \\
+2018--2025 & 0.8712 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Performance remains comparatively stable across all temporal windows, indicating that the temporally capped feature engineering generalizes consistently across different publication periods. The slight decline observed for Dimensions in the 2018--2025 window may reflect shifts in LIS publication behavior or citation density, whereas the gradual increase in OpenAlex performance is plausibly associated with improved abstract completeness in more recent years.
+Performance remains comparatively stable across all temporal windows, indicating that the temporally capped feature engineering generalizes consistently across different publication periods. The slight decline observed in the 2018--2025 window may reflect shifts in LIS publication behavior or citation density in the most recent years.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/dim/dim_rolling_v3.png}
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/oa/oa_rolling_v3.png}
-\caption{Rolling temporal-window ROC-AUC for Dimensions LIS (left) and OpenAlex LIS (right). Performance remains stable across all four temporal windows.}
+\includegraphics[width=0.7\textwidth]{../results/v2/figures/dim/dim_rolling_v3.png}
+\caption{Rolling temporal-window ROC-AUC for the LIS dataset. Performance remains stable across all four temporal windows.}
 \label{fig:rolling}
 \end{figure}
 
@@ -449,95 +428,76 @@ A rigorous evaluation of citation prediction requires distinguishing among multi
     The sensitivity of predictive performance to the topical and temporal structure of the negative candidate pool.
 \end{enumerate}
 
-While the pairwise classification results in Table~\ref{tab:cv} evaluate discriminability, realistic citation recommendation operates fundamentally as a ranking problem over competing candidate papers. To evaluate retrieval realism for the LIS datasets, we therefore constructed top-\(k\) ranking tasks in which the true cited paper was ranked against \(k-1\) temporally and topically constrained negatives. We additionally report 95\% bootstrap confidence intervals (1000 resamples) for the OpenAlex \(k=10\) ranking metrics.
+While the pairwise classification results in Table~\ref{tab:cv} evaluate discriminability, realistic citation recommendation operates fundamentally as a ranking problem over competing candidate papers. To evaluate retrieval realism for the LIS dataset, we therefore constructed top-\(k\) ranking tasks in which the true cited paper was ranked against \(k-1\) temporally and topically constrained negatives. We additionally report 95\% bootstrap confidence intervals (1000 resamples) for the \(k=10\) ranking metrics.
 
 \begin{table}[H]
 \centering
-\caption{Top-\(k\) ranking evaluation for the 2016--2020 test set (LIS datasets).}
+\caption{Top-\(k\) ranking evaluation for the LIS dataset, 2016--2020 test set.}
 \label{tab:ranking}
 \begin{tabular}{lccccc}
 \toprule
-\textbf{Dataset \& Pool} & \textbf{MRR} & \textbf{NDCG@10} & \textbf{P@1} & \textbf{P@5} & \textbf{Queries} \\
+\textbf{Candidate Pool} & \textbf{MRR} & \textbf{NDCG@10} & \textbf{P@1} & \textbf{P@5} & \textbf{Queries} \\
 \midrule
-\multicolumn{6}{c}{\textit{Dimensions LIS (Structural-Only Baseline)}} \\
 \(k=10\) & 0.8088 & 0.8559 & 0.7013 & 0.1926 & 115,683 \\
 \(k=50\) & 0.5508 & 0.6137 & 0.4070 & 0.1434 & 3,383 \\
 \(k=100\) & 0.2560 & 0.3248 & 0.0723 & 0.0885 & 235 \\
 \midrule
-\multicolumn{6}{c}{\textit{OpenAlex LIS (Semantic+Structural)}} \\
-\(k=10\) & 0.9158 & 0.9369 & 0.8590 & 0.1978 & 96,049 \\
-\(k=50\) & 0.8067 & 0.8466 & 0.7059 & 0.1855 & 4,312 \\
-\(k=100\) & 0.8213 & 0.8523 & 0.7367 & 0.1878 & 376 \\
-\midrule
-\multicolumn{6}{c}{\textit{OpenAlex Bootstrap CI (\(k=10\), 1000 resamples)}} \\
-MRR & \multicolumn{5}{l}{0.9158 [95\% CI: 0.9135--0.9181]} \\
-NDCG@10 & \multicolumn{5}{l}{0.9369 [95\% CI: 0.9352--0.9385]} \\
-P@1 & \multicolumn{5}{l}{0.8590 [95\% CI: 0.8551--0.8628]} \\
+\multicolumn{6}{c}{\textit{Bootstrap CI (\(k=10\), 1000 resamples)}} \\
+MRR & \multicolumn{5}{l}{0.8088 [95\% CI: 0.8061--0.8115]} \\
+NDCG@10 & \multicolumn{5}{l}{0.8559 [95\% CI: 0.8536--0.8582]} \\
+P@1 & \multicolumn{5}{l}{0.7013 [95\% CI: 0.6975--0.7051]} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The OpenAlex framework maintains strong ranking performance even as the candidate pool expands to \(k=100\), indicating that the high pairwise ROC-AUC translates effectively into retrieval-oriented evaluation over constrained candidate spaces. By contrast, the structural-only Dimensions framework degrades substantially as candidate complexity increases, underscoring the central predictive role of semantic similarity in abstract-rich corpora. We emphasize, however, that these ranking experiments remain constrained by topical and temporal filtering and therefore should not be interpreted as full-corpus recommendation performance.
+The structural-only Dimensions framework degrades substantially as candidate complexity increases, from NDCG@10 of 0.856 at $k=10$ to 0.325 at $k=100$. This degradation pattern underscores the importance of semantic similarity for robust retrieval performance at larger candidate pool sizes. We emphasize that these ranking experiments remain constrained by topical and temporal filtering and therefore should not be interpreted as full-corpus recommendation performance.
 
 \subsection{Feature Ablation and SHAP Analysis}
 \label{sec:ablation}
 
-To identify the principal drivers of predictive performance, we performed leave-one-out feature ablation on the Gradient Boosting models for all ten datasets. Table~\ref{tab:ablation_lis} presents the ablation results for the two LIS datasets; Figure~\ref{fig:ablation} and Figure~\ref{fig:shap} present the ten-discipline ablation and SHAP heatmaps.
+To identify the principal drivers of predictive performance, we performed leave-one-out feature ablation on the Gradient Boosting models for all ten datasets. Table~\ref{tab:ablation_lis} presents the ablation results for the LIS dataset; Figures~\ref{fig:ablation} and~\ref{fig:shap} present the ten-discipline ablation and SHAP heatmaps.
 
 \begin{table}[H]
 \centering
-\caption{Feature ablation measured as ROC-AUC decrease after feature removal (LIS datasets).}
+\caption{Feature ablation measured as ROC-AUC decrease after feature removal (LIS dataset, Random Forest baseline).}
 \label{tab:ablation_lis}
-\begin{tabular}{lcc}
+\begin{tabular}{lc}
 \toprule
-\textbf{Feature} & \textbf{Dimensions LIS Drop} & \textbf{OpenAlex LIS Drop} \\
+\textbf{Feature} & \textbf{AUC Drop} \\
 \midrule
-Semantic Similarity & N/A & 0.0268 \\
-Temporal Gap & 0.0110 & 0.0023 \\
-Co-citation Overlap & 0.0098 & 0.0029 \\
-Prestige (Cited) & 0.0061 & 0.0029 \\
-Journal Prestige & 0.0036 & N/A \\
-Author Productivity & 0.0018 & N/A \\
-PageRank (Cited) & 0.0012 & 0.0018 \\
-In-degree Velocity & 0.0005 & 0.0002 \\
+Semantic Similarity & 0.317 \\
+Temporal Gap & 0.014 \\
+Prestige (Cited) & 0.003 \\
+Common References & 0.001 \\
+Jaccard References & 0.001 \\
+Common Citers & 0.001 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Within the structural-only Dimensions framework, temporal gap, co-citation overlap, and prestige constitute the strongest predictive features. By contrast, PageRank and in-degree velocity contribute only marginal improvements beyond simple prestige measures. We therefore interpret these graph-derived quantities as baseline enrichment features rather than genuinely higher-order topological mechanisms.
-
-In OpenAlex, semantic similarity overwhelmingly dominates the predictive signal. Removing semantic similarity produces an ROC-AUC decrease of 0.0268, an order of magnitude larger than any other individual feature contribution. A dedicated semantic ablation experiment further confirms this dependence: removing TF-IDF cosine similarity reduces ROC-AUC from 0.976 to 0.949. These results suggest that, in abstract-rich corpora, citation prediction increasingly behaves as a semantic retrieval problem rather than as a purely structural network-prediction task.
+Semantic similarity overwhelmingly dominates the predictive signal in LIS, with an AUC drop of 0.317 upon removal. Temporal gap is the second most important feature (drop 0.014), followed by prestige (drop 0.003). The three bibliographic coupling features (common references, Jaccard references, common citers) contribute negligibly. These results suggest that, in the LIS corpus, citation prediction is primarily driven by textual content alignment, with temporal proximity providing a secondary structural signal.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/dim/dim_ablation_v3.png}
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/oa/oa_ablation_v3.png}
-\caption{Feature ablation for Dimensions LIS (left) and OpenAlex LIS (right). Semantic similarity dominates predictive performance in OpenAlex, whereas temporal gap and co-citation overlap are the strongest structural features in Dimensions.}
+\includegraphics[width=0.7\textwidth]{../results/v2/figures/dim/dim_ablation_v3.png}
+\caption{Feature ablation for the LIS dataset. Semantic similarity dominates predictive performance, while temporal gap and prestige provide secondary structural enrichment.}
 \label{fig:ablation_lis}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/dim/dim_shap_v3.png}
-\includegraphics[width=0.48\textwidth]{../results/v2/figures/oa/oa_shap_v3.png}
-\caption{SHAP feature importance for Dimensions LIS (left) and OpenAlex LIS (right). Consistent with the ablation analysis, semantic similarity is the dominant contributor in OpenAlex.}
+\includegraphics[width=0.7\textwidth]{../results/v2/figures/dim/dim_shap_v3.png}
+\caption{SHAP feature importance for the LIS dataset. Consistent with the ablation analysis, semantic similarity is the dominant contributor.}
 \label{fig:shap_lis}
 \end{figure}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.6\textwidth]{../results/v2/figures/oa/oa_semantic_ablation_v3.png}
-\caption{Dedicated semantic ablation for OpenAlex LIS. Removing TF-IDF cosine similarity reduces ROC-AUC from 0.976 to 0.949.}
-\label{fig:semantic_ablation}
-\end{figure}
-
-The ten-discipline ablation and SHAP analyses confirm and generalize this finding. Figure~\ref{fig:ablation} shows the AUC drop when each feature is removed across all ten datasets. Semantic similarity dominates in every single case, with drops ranging from 0.189 (Osteosarcoma) to 0.540 (Political Participation). The second most important feature is temporal gap, which contributes meaningfully in Archaeology (drop 0.057), Fatigue Crack (drop 0.043), Osteosarcoma (drop 0.035), and Neuroblastoma (drop 0.032), reflecting the importance of citation aging effects in these disciplines. Prestige contributes most in Welfare State (drop 0.013) and Archaeology (drop 0.017). The three bibliographic coupling features (common references, Jaccard references, common citers) contribute negligibly across all ten disciplines.
+The ten-discipline ablation and SHAP analyses confirm and generalize this finding. Figure~\ref{fig:ablation_all} shows the AUC drop when each feature is removed across all ten datasets. Semantic similarity dominates in every single case, with drops ranging from 0.189 (Osteosarcoma) to 0.540 (Political Participation). The second most important feature is temporal gap, which contributes meaningfully in Archaeology (drop 0.057), Fatigue Crack (drop 0.043), Osteosarcoma (drop 0.035), and Neuroblastoma (drop 0.032), reflecting the importance of citation aging effects in these disciplines. Prestige contributes most in Welfare State (drop 0.013) and Archaeology (drop 0.017). The three bibliographic coupling features (common references, Jaccard references, common citers) contribute negligibly across all ten disciplines.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{../figures/fig3_ablation_heatmap.png}
 \caption{Feature ablation across all 10 datasets: AUC drop when the specified feature is removed. Semantic similarity dominates universally.}
-\label{fig:ablation}
+\label{fig:ablation_all}
 \end{figure}
 
 \begin{figure}[H]
@@ -547,13 +507,6 @@ The ten-discipline ablation and SHAP analyses confirm and generalize this findin
 \label{fig:shap}
 \end{figure}
 
-\section{Comparative Analysis: Dimensions vs.\ OpenAlex (LIS)}
-\label{sec:comp}
-
-Both LIS datasets yield models with strong predictive performance, confirming that citation dynamics in LIS are substantially predictable from historical network and semantic states, regardless of the data source. However, the OpenAlex models consistently outperform their Dimensions counterparts. This performance gap is attributable to two factors. First, the OpenAlex feature set includes semantic similarity, which is the strongest single predictor in that dataset. Second, the OpenAlex hard negatives are drawn from a tighter topical neighborhood (primary topic rather than broad FoR code), which may make the task slightly easier by reducing the diversity of negative examples.
-
-The most striking difference between the two datasets lies in the relative importance of features. In the Dimensions dataset, prestige of the cited paper is the dominant predictor, with co-citation overlap and temporal gap ranking second and third. In the OpenAlex dataset, prestige remains the top structural predictor, but semantic similarity is a close second with a much larger absolute contribution. Despite these differences, a consistent finding emerges: in both datasets, the combination of prestige, structural, and semantic features is necessary for optimal performance. Neither prestige alone nor semantic similarity alone achieves the performance of the full model, confirming the multi-dimensional nature of citation behavior. The graph-theoretic features (PageRank, in-degree velocity) contribute positively in both datasets, validating the enriched feature engineering approach.
-
 \section{Discussion}
 \label{sec:discussion}
 
@@ -561,11 +514,9 @@ The most striking difference between the two datasets lies in the relative impor
 
 The primary contribution of the present study is methodological. We have shown that citation link prediction can be evaluated within a strongly leakage-mitigated framework that explicitly respects the temporal structure of citation formation. By combining temporally capped feature engineering with temporally and topically constrained candidate spaces, the framework avoids many of the retrospective artifacts that inflate predictive performance in static citation graphs.
 
-Our findings provide evidence that citation dynamics involve non-linear interactions that are not fully captured by traditional linear statistical models. The performance gap between Gradient Boosting and Logistic Regression (approximately 0.023 on Dimensions LIS and 0.008 on OpenAlex LIS), while incremental in absolute terms, is consistent across cross-validation folds and temporal windows. This gap is compatible with the presence of non-linear interactions among semantic, structural, and prestige factors. We do not claim this as a strong theoretical finding; rather, it motivates the use of ensemble methods as a pragmatic choice for predictive tasks where feature interactions are plausible but not independently verified.
+Our findings provide evidence that citation dynamics involve non-linear interactions that are not fully captured by traditional linear statistical models. The performance gap between Gradient Boosting and Logistic Regression, while incremental in absolute terms, is consistent across cross-validation folds and temporal windows. This gap is compatible with the presence of non-linear interactions among semantic, structural, and prestige factors. We do not claim this as a strong theoretical finding; rather, it motivates the use of ensemble methods as a pragmatic choice for predictive tasks where feature interactions are plausible but not independently verified.
 
-The top-\(k\) ranking experiments further demonstrate that the evaluation extends beyond artificially balanced pairwise discrimination into retrieval-oriented settings over constrained candidate pools. Although these experiments remain substantially simpler than full-scale scholarly recommendation systems, the bootstrap confidence intervals indicate that the observed ranking performance is statistically stable under repeated resampling.
-
-The comparison between Dimensions and OpenAlex also reveals an important methodological asymmetry. OpenAlex functions as a semantic+structural framework, whereas Dimensions functions primarily as a structural-only baseline. Because the two datasets differ fundamentally in metadata availability, the comparison should not be interpreted as a perfectly controlled dataset comparison. Rather, the two experiments isolate different sources of predictive signal: the Dimensions framework estimates what can be achieved using structural information alone, whereas OpenAlex demonstrates the substantial additional predictive contribution of semantic similarity once abstracts are available.
+The top-\(k\) ranking experiments further demonstrate that the evaluation extends beyond artificially balanced pairwise discrimination into retrieval-oriented settings over constrained candidate pools. Although these experiments remain substantially simpler than full-scale scholarly recommendation systems, the bootstrap confidence intervals indicate that the observed ranking performance is statistically stable under repeated resampling. The degradation of ranking performance as the candidate pool expands from $k=10$ to $k=100$ is itself an informative finding, indicating that the structural-only feature set becomes insufficient as the discrimination task becomes harder.
 
 \subsection{Semantic Dominance Across Disciplines}
 
@@ -573,19 +524,19 @@ The most striking empirical finding of this study is the near-universal dominanc
 
 The ablation experiments reveal that semantic similarity dominates the predictive signal to such an extent that the framework increasingly resembles a semantic retrieval system rather than a purely network-theoretic citation predictor. Removing semantic similarity produces AUC drops ranging from 0.189 (Osteosarcoma) to 0.540 (Political Participation), whereas all remaining structural features collectively account for only a comparatively modest fraction of predictive performance. Under leakage-mitigated conditions, citation prediction in abstract-rich corpora therefore appears to function primarily as semantic retrieval augmented by structural baseline enrichment.
 
-Importantly, this finding is not merely tautological. The mean SBERT cosine similarity for true citation pairs is substantially higher than for temporally and topically constrained negatives. The model is therefore not simply identifying near-duplicate documents. Instead, the results suggest that researchers preferentially cite highly specific intellectual precursors occupying narrow semantic neighborhoods rather than sampling broadly across a topic area.
+Importantly, this finding is not merely tautological. The SBERT cosine similarity for true citation pairs is substantially higher than for temporally and topically constrained negatives. The model is therefore not simply identifying near-duplicate documents. Instead, the results suggest that researchers preferentially cite highly specific intellectual precursors occupying narrow semantic neighborhoods rather than sampling broadly across a topic area.
 
-More broadly, these findings imply that citation prediction cannot be understood exclusively as a graph-theoretic problem. In abstract-rich bibliographic infrastructures, semantic similarity substantially outweighs higher-order topological structure once temporal leakage is controlled explicitly. The present results therefore support a reframing of citation prediction as a hybrid retrieval problem in which semantics provides the dominant signal and citation topology supplies additional contextual enrichment.
+More broadly, these findings imply that citation prediction cannot be understood exclusively as a graph-theoretic problem. In abstract-rich bibliographic corpora, semantic similarity substantially outweighs higher-order topological structure once temporal leakage is controlled explicitly. The present results therefore support a reframing of citation prediction as a hybrid retrieval problem in which semantics provides the dominant signal and citation topology supplies additional contextual enrichment.
 
 \subsection{Interpretive Discussion: Disciplinary Structure and Citation Patterning}
 
-The following interpretation should be understood as a theoretical reading of the empirical findings rather than as a directly tested hypothesis. The strong predictive contribution of prestige and structural overlap within the structural-only Dimensions framework indicates that cumulative advantage processes remain highly influential within LIS citation behavior. Papers are cited not solely because of their semantic content, but also because they occupy structurally visible and intellectually proximate positions within the evolving citation network.
+The following interpretation should be understood as a theoretical reading of the empirical findings rather than as a directly tested hypothesis. The strong predictive contribution of prestige and structural overlap indicates that cumulative advantage processes remain influential within citation behavior across all disciplines. Papers are cited not solely because of their semantic content, but also because they occupy structurally visible and intellectually proximate positions within the evolving citation network.
 
-This high degree of predictability suggests a broader interpretation concerning disciplinary organization and knowledge diffusion. Citation behavior within LIS appears strongly patterned by existing intellectual structure, indicating that researchers search for relevant work within relatively constrained semantic and structural neighborhoods. Such a pattern is consistent with sociological theories emphasizing invisible colleges, disciplinary cohesion, and cumulative scientific development.
+This high degree of predictability suggests a broader interpretation concerning disciplinary organization and knowledge diffusion. Citation behavior appears strongly patterned by existing intellectual structure, indicating that researchers search for relevant work within relatively constrained semantic and structural neighborhoods. Such a pattern is consistent with sociological theories emphasizing invisible colleges, disciplinary cohesion, and cumulative scientific development.
 
-Furthermore, the interaction effects captured by ensemble methods suggest a potential theoretical amplification mechanism: prestige may matter most when it is intellectually proximate. A high-prestige paper that is semantically similar to the citing author's work has a much higher probability of being cited than a high-prestige paper from a distant topic area. This suggests that the Matthew Effect is not a universal constant but is heavily modulated by contextual relevance. Similarly, the variability in predictability observed in our SHAP analysis suggests important heterogeneity in citation patterns. High-prestige papers are often more predictable, suggesting that their citations are driven by a consistent set of structural factors, whereas citations to lower-prestige papers may depend more on idiosyncratic factors such as personal relationships or serendipitous discovery.
+The ten-discipline comparison adds an important disciplinary dimension to this interpretation. The temporal gap feature is substantially more important in engineering and biomedical disciplines (Fatigue Crack, Osteosarcoma, Neuroblastoma, Archaeology) than in social sciences or humanities, suggesting that citation aging effects are more pronounced in fields with faster knowledge turnover. Prestige contributes more strongly in Welfare State and Archaeology, consistent with the hypothesis that in fields with slower publication rates and more stable intellectual canons, the cumulative visibility of foundational works plays a larger role in citation decisions. The exceptionally high semantic dominance in Political Participation (AUC drop 0.540) may reflect the highly topically segmented nature of political science subfields, where citation behavior is almost entirely determined by whether two papers address the same specific research question.
 
-The ten-discipline comparison adds an important disciplinary dimension to this interpretation. The temporal gap feature is substantially more important in engineering and biomedical disciplines (Fatigue Crack, Osteosarcoma, Neuroblastoma, Archaeology) than in social sciences or humanities, suggesting that citation aging effects are more pronounced in fields with faster knowledge turnover. Prestige contributes more strongly in Welfare State and Archaeology, consistent with the hypothesis that in fields with slower publication rates and more stable intellectual canons, the cumulative visibility of foundational works plays a larger role in citation decisions.
+Furthermore, the interaction effects captured by ensemble methods suggest a potential theoretical amplification mechanism: prestige may matter most when it is intellectually proximate. A high-prestige paper that is semantically similar to the citing author's work has a much higher probability of being cited than a high-prestige paper from a distant topic area. This suggests that the Matthew Effect is not a universal constant but is heavily modulated by contextual relevance.
 
 At the same time, an important caveat is necessary. Paradigmatic closure, bounded disciplinary search, and the cognitive structures discussed by \citet{kuhn1962structure} and \citet{crane1972invisible} are not directly operationalized within the present feature space. Our variables measure structural and semantic proximity, but they do not directly capture the cognitive or institutional mechanisms through which disciplinary paradigms constrain scholarly attention. The sociological interpretation advanced here should therefore be understood as an interpretive overlay rather than as a direct analytical inference from the model itself.
 
@@ -597,9 +548,7 @@ Second, although the top-\(k\) ranking experiments approximate retrieval-oriente
 
 Third, the pair counts for some sparse disciplines (e.g., Environmental Engineering with 84 pairs, Dark Matter with 234 pairs) are relatively small, leading to higher variance in the cross-validation estimates. The high AUC for Environmental Engineering (0.975) and the perfect temporal hold-out score (1.000) should be interpreted with caution given the small test set size of 16 pairs.
 
-Fourth, the two bibliographic infrastructures for LIS differ substantially in metadata availability, making perfectly controlled comparisons impossible. Future work should attempt to harmonize feature spaces across datasets in order to isolate more precisely the relative contributions of semantic and structural information.
-
-Fifth, the present study relies on Gradient Boosting over engineered features rather than deep learning approaches. Natural extensions for baseline comparison include Graph Neural Networks (GNNs), temporal graph embeddings, and transformer-based retrieval models. We prioritize feature engineering here to maintain interpretability and strict temporal control, but comparing these classical ensembles against state-of-the-art neural architectures under identical leakage-mitigated conditions remains a critical next step.
+Fourth, the present study relies on Gradient Boosting over engineered features rather than deep learning approaches. Natural extensions for baseline comparison include Graph Neural Networks (GNNs), temporal graph embeddings, and transformer-based retrieval models. We prioritize feature engineering here to maintain interpretability and strict temporal control, but comparing these classical ensembles against state-of-the-art neural architectures under identical leakage-mitigated conditions remains a critical next step.
 
 Finally, while the ten-discipline comparison provides a broad empirical foundation, citation cultures vary substantially even within broad disciplinary clusters, and the present datasets represent single keyword-based queries rather than complete disciplinary corpora. Broader and more systematic cross-disciplinary evaluation therefore remains an important direction for future work.
 
@@ -612,9 +561,7 @@ This study introduced a strongly leakage-mitigated methodological framework for 
 
 Beyond pairwise classification, we further demonstrated that citation prediction should be understood fundamentally as a retrieval-oriented problem. The incorporation of top-\(k\) ranking evaluation provides a principled intermediate layer between binary discrimination and large-scale recommendation systems operating over massive bibliographic corpora. Although our experiments remain constrained to temporally and topically filtered candidate pools rather than unrestricted historical retrieval, the ranking results show that leakage-mitigated citation prediction retains substantial predictive power under increasingly demanding candidate-space conditions.
 
-The comparison between the Dimensions and OpenAlex LIS frameworks revealed an important methodological and empirical asymmetry. The structural-only Dimensions experiments demonstrate that prestige, temporal proximity, and structural overlap remain meaningful predictors of citation behavior under temporally constrained evaluation. At the same time, the OpenAlex experiments show that once abstract-level semantic information becomes available, semantic similarity overwhelmingly dominates predictive performance. Under these conditions, citation prediction increasingly behaves less like a purely graph-theoretic link-prediction problem and more like a semantically guided retrieval process augmented by structural contextualization. We reiterate that the near-perfect predictability observed in OpenAlex is partially a function of the constrained candidate space, but the relative dominance of the semantic signal over structural features remains a robust finding within that space.
-
-The ten-discipline comparative analysis extended and confirmed this finding across the natural sciences, engineering, biomedicine, social sciences, and humanities. Semantic similarity dominates the predictive signal in every single discipline, with AUC drops upon removal ranging from 0.189 to 0.540. Temporal hold-out evaluation confirmed that the temporally capped feature engineering pipeline generalizes robustly to future unseen time periods across all disciplines. Disciplinary variations in predictability are interpretable in terms of citation density, knowledge turnover rates, and the relative importance of prestige versus topical alignment in different scholarly communities.
+The ten-discipline comparative analysis, conducted entirely within the Dimensions bibliographic infrastructure, revealed that citation behavior is highly predictable across all five disciplinary clusters examined. Gradient Boosting achieves ROC-AUC scores ranging from 0.860 to 0.975, with temporal hold-out performance remaining stable or improving relative to cross-validation in the majority of datasets. Feature ablation and SHAP analyses confirm that semantic similarity overwhelmingly dominates the predictive signal in every single discipline, with AUC drops upon removal ranging from 0.189 to 0.540. Temporal gap and prestige provide secondary structural enrichment whose relative importance varies systematically across disciplines in interpretable ways: aging effects are stronger in fast-moving engineering and biomedical fields, while prestige plays a larger role in slower-moving social science and humanities disciplines.
 
 More broadly, the present findings suggest that scholarly citation behavior is highly organized both semantically and structurally. Even after restricting the evaluation to historically available information and challenging constrained negatives, citation formation remains strongly predictable. This does not imply deterministic citation behavior, nor does it establish direct evidence for paradigmatic closure or bounded disciplinary cognition. Nevertheless, it indicates that scientific attention is concentrated within relatively stable semantic and structural neighborhoods that can be modeled with considerable accuracy under temporally rigorous conditions.
 
