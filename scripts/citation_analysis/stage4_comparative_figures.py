@@ -122,8 +122,7 @@ def generate_figures():
     # Custom legend for disciplines — placed outside the plot area
     from matplotlib.patches import Patch
     legend_elements = [Patch(facecolor=palette[d], label=d) for d in palette]
-    ax.legend(handles=legend_elements, loc="upper left",
-              bbox_to_anchor=(1.01, 1), borderaxespad=0)
+    ax.legend(handles=legend_elements, loc="upper right")
     
     plt.tight_layout()
     fig.savefig(FIG_DIR / "fig1_auc_comparison.png")
@@ -191,7 +190,7 @@ def generate_figures():
         ax.set_ylabel("AUC")
         ax.set_title("Temporal Generalization: CV vs Holdout")
         ax.set_ylim([min(min(cv_aucs), min(temp_aucs)) - 0.05, 1.0])
-        ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
+        ax.legend(loc="upper right")
         
         plt.tight_layout()
         fig.savefig(FIG_DIR / "fig4_temporal_stability.png")
