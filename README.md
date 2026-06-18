@@ -28,7 +28,7 @@ Ten thematic bibliographic datasets are retrieved from Dimensions.ai using keywo
 | Engineering | environmental engineering | 53,394 | 51,471 (96.4%) | 40,595 (76.0%) |
 | BioMed | neuroblastoma | 57,319 | 51,616 (90.1%) | 43,148 (75.3%) |
 | BioMed | osteosarcoma + bone sarcoma | 61,187 | 54,528 (89.1%) | 44,170 (72.2%) |
-| Social Science | political participation | 50,560 | 48,819 (96.6%) | 31,786 (62.9%) |
+| Social Science | political participation (expanded) | 77,383 | 74,162 (95.8%) | 51,008 (65.9%) |
 | Social Science | welfare state | 62,625 | 54,011 (86.3%) | 38,738 (61.9%) |
 | Humanities | archaeology | 60,498 | 41,941 (69.3%) | 28,870 (47.7%) |
 | Humanities | art history | 68,288 | 59,828 (87.6%) | 29,644 (43.4%) |
