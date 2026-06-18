@@ -104,7 +104,7 @@ def generate_figures():
             labels.append(ds)
             colors.append(palette[DISCIPLINES[ds]])
             
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(14, 6))
     x = np.arange(len(labels))
     bars = ax.bar(x, gb_aucs, yerr=gb_stds, color=colors, capsize=4, edgecolor="black")
     
@@ -119,10 +119,11 @@ def generate_figures():
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.005,
                 f"{val:.3f}", ha="center", va="bottom", fontsize=9)
                 
-    # Custom legend for disciplines
+    # Custom legend for disciplines — placed outside the plot area
     from matplotlib.patches import Patch
     legend_elements = [Patch(facecolor=palette[d], label=d) for d in palette]
-    ax.legend(handles=legend_elements, loc="lower right")
+    ax.legend(handles=legend_elements, loc="upper left",
+              bbox_to_anchor=(1.01, 1), borderaxespad=0)
     
     plt.tight_layout()
     fig.savefig(FIG_DIR / "fig1_auc_comparison.png")
@@ -178,7 +179,7 @@ def generate_figures():
                 temp_aucs.append(temp_data[ds]["Gradient Boosting"]["auc"])
                 valid_labels.append(ds)
                 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=(14, 6))
         x = np.arange(len(valid_labels))
         w = 0.35
         
@@ -190,7 +191,7 @@ def generate_figures():
         ax.set_ylabel("AUC")
         ax.set_title("Temporal Generalization: CV vs Holdout")
         ax.set_ylim([min(min(cv_aucs), min(temp_aucs)) - 0.05, 1.0])
-        ax.legend()
+        ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
         
         plt.tight_layout()
         fig.savefig(FIG_DIR / "fig4_temporal_stability.png")
