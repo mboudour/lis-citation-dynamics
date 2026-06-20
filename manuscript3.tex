@@ -1,0 +1,536 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage[round,authoryear]{natbib}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{authblk}
+\usepackage{setspace}
+
+\makeatletter
+\renewcommand\NAT@sep{;\penalty0\space}
+\makeatother
+
+\geometry{margin=1in}
+\setstretch{1.15}
+
+\title{What Survives Temporal Leakage?\\Semantic Dominance in Citation Prediction Across Ten Scholarly Domains}
+\author{Moses Boudourides}
+\affil{School of Professional Studies, Northwestern University, Evanston, IL, USA%
+\authorcr\texttt{Moses.Boudourides@northwestern.edu}}
+\date{}
+
+\begin{document}
+\sloppy
+
+\maketitle
+
+\begin{abstract}
+What survives after temporal leakage is rigorously removed from citation link prediction? This paper answers that question across ten large-scale scholarly corpora. We introduce a strongly leakage-mitigated methodological framework for citation link prediction grounded explicitly in the temporal structure of scholarly communication. We formalize four forms of temporal leakage---future citation leakage, future topology leakage, metadata leakage, and semantic leakage---and construct a temporally constrained feature-engineering pipeline in which all network-derived quantities are computed exclusively from information available prior to the publication year of the citing paper. We evaluate this framework on ten bibliographic datasets retrieved from Dimensions.ai, spanning five broad scholarly domains: Science (Protein Folding, CRISPR), Engineering (Additive Manufacturing, Corrosion Protection), BioMed (Neuroblastoma, Osteosarcoma), Social Science (Income Inequality, Organizational Behavior), and Humanities (Film Studies, Memory Studies). Each corpus covers the period 1975--2024. Gradient Boosting achieves ROC-AUC scores ranging from 0.530 to 0.734 under temporally rigorous evaluation. Feature ablation and SHAP analyses reveal a clear S-N-SN decomposition: Science domains are N-dominated (the temporal gap drives prediction, with AUC drops of 0.274--0.548 upon its removal); Engineering and Social Science domains are N-dominated but S-inert (semantic similarity is highly correlated with citation behavior but provides zero unique predictive value beyond the temporal gap); and the Humanities domain (Memory Studies) is the sole S-dominated case, where semantic similarity removal causes a larger AUC drop (0.126) than temporal gap removal (0.085). Higher-order topological features contribute negligibly across all domains. We conclude that what survives temporal leakage is primarily a combination of semantic alignment and temporal recency, whose relative balance is domain-specific and scientometrically interpretable.
+\end{abstract}
+
+\noindent\textbf{Keywords:} citation link prediction; temporal leakage; S-N-SN decomposition; bibliometric machine learning; SBERT semantic similarity; gradient boosting; feature ablation; SHAP; scholarly domain comparison; Dimensions.ai; temporally capped graph
+
+% \bigskip
+
+
+\section{Introduction}
+\label{sec:intro}
+
+Scientific citations constitute the primary mechanism through which scholarly knowledge is accumulated, validated, and integrated into the scientific record. Citation networks therefore encode not only the intellectual lineage of individual publications but also the evolving structure of scientific communities and disciplinary attention. Predicting the formation of new links within these networks---citation link prediction---has consequently emerged as a central problem at the intersection of informetrics, network science, information retrieval, and machine learning \citep{wang2013quantifying, shibata2012link, he2010context, beel2016paper}. Accurate citation prediction has practical applications in literature recommendation systems, research-front detection, and scholarly search, while also contributing to the broader theoretical understanding of how scientific attention is allocated across increasingly large and fragmented bodies of published knowledge.
+
+At the same time, the methodological validity of citation prediction remains deeply sensitive to temporality. Citation networks are cumulative and dynamically evolving systems in which the information available at the time of citation differs fundamentally from the information observable retrospectively. Nevertheless, many machine learning studies construct features from the fully aggregated static graph, thereby allowing future information to influence past predictions implicitly. For example, computing a paper's PageRank on the complete 2024 citation network and using it to predict a citation that occurred in 2010 allows the model to exploit information about the paper's eventual scientific success that was unavailable to the citing author at the time of writing. Such future topology leakage artificially inflates predictive performance and weakens causal interpretability by obscuring the historically available information that actually governed citation behavior. Temporal leakage has become an increasingly important concern in applied machine learning more broadly, particularly in temporally ordered prediction tasks \citep{fortunato2018science}, yet citation prediction remains especially vulnerable because the temporal structure of bibliometric data is frequently ignored in benchmark construction and feature engineering.
+
+Accordingly, the present study is positioned not primarily as a new recommendation architecture, but as a strongly leakage-mitigated evaluation framework for bibliometric citation prediction. Our primary contribution is methodological. We introduce a formal taxonomy of temporal leakage and provide explicit mathematical definitions of the temporally capped graph, the constrained candidate space, and the ranking objective. We engineer a feature set encompassing structural overlap, prestige, temporal dynamics, and semantic similarity, while ensuring that all network-derived quantities are computed exclusively from information available prior to the publication year of the citing paper. We pair this feature construction with a temporally constrained evaluation protocol incorporating hard negative sampling, rolling temporal windows, and top-$k$ ranking experiments designed to establish a rigorous intermediate step between pairwise discrimination and large-scale retrieval evaluation.
+
+Our secondary contribution is the application of this framework to ten topical citation graphs retrieved from Dimensions.ai, spanning Science, Engineering, BioMed, Social Science, and Humanities. By applying identical feature engineering and evaluation protocols across these diverse scholarly domains, we reveal the S-N-SN decomposition: the domain-specific balance between Semantic (S) and Network (N) temporal signals that characterizes citation behavior under leakage-mitigated conditions.
+
+Our principal empirical finding is a clear S-N-SN decomposition across the ten domains. Science domains (Protein Folding, CRISPR) are strongly N-dominated: the temporal gap between citing and cited paper drives prediction almost entirely, with AUC drops of 0.274--0.548 upon its removal. Engineering and Social Science domains are also N-dominated but exhibit a distinctive S-inert pattern: semantic similarity correlates strongly with citation behavior (SHAP weights 0.39--0.50) but provides zero unique predictive value beyond the temporal gap, because topical relevance and temporal recency are so tightly coupled in these fields that text and time carry nearly identical information. The Humanities domain (Memory Studies) is the sole S-dominated case, where semantic similarity removal causes a larger AUC drop (0.126) than temporal gap removal (0.085), consistent with the interpretive and cross-temporal nature of humanities scholarship. Higher-order topological features (PageRank, bibliographic coupling, co-citation) contribute negligibly across all domains. We embrace this S-N-SN decomposition not as a methodological failure but as a substantive scientometric finding: what survives temporal leakage is a domain-specific balance between semantic alignment and temporal recency.
+
+Finally, we explicitly delimit the scope of the present study. Our retrieval experiments approximate recommendation realism through constrained candidate pools rather than full-corpus search; our graph-theoretic features function primarily as baseline enrichment rather than as sophisticated higher-order topological descriptors; and our semantic representations are based on SBERT embeddings whose pre-training corpora introduce a systemic vector of semantic leakage that cannot be perfectly mitigated without chronologically re-trained language models. These limitations are acknowledged explicitly in order to distinguish clearly between the methodological guarantees established here and broader claims that remain outside the scope of the present work.
+
+\section{Literature Review}
+\label{sec:lit}
+
+\subsection{Citation Dynamics and Network Evolution}
+
+The dynamics of scientific citation have long been associated with cumulative advantage processes in which highly cited papers attract future citations at disproportionate rates. Merton formalized this mechanism sociologically as the Matthew Effect \citep{merton1968matthew}, while network science later operationalized it mathematically through preferential attachment models \citep{barabasi1999emergence}. In citation networks, preferential attachment implies that the probability of acquiring new citations grows as a function of existing citation counts. However, degree accumulation alone cannot fully explain citation behavior because scientific attention is simultaneously shaped by aging, obsolescence, topical relevance, and disciplinary visibility \citep{price1965networks}. Wang, Song, and Barab\'asi \citep{wang2013quantifying} demonstrated that long-term citation trajectories emerge from the interaction among preferential attachment, intrinsic fitness, and temporal aging. These mechanisms directly motivate the present framework: historical prestige operationalizes cumulative advantage, semantic similarity approximates topical fitness, and temporal distance captures aging and obsolescence effects.
+
+\subsection{Social and Semantic Proximity in Citation}
+
+Beyond prestige, a growing body of research has demonstrated that social proximity and semantic proximity are powerful predictors of citation behavior, often rivaling or exceeding the effect of prestige for the majority of papers. Newman's foundational work on co-authorship networks established that scientific collaboration is highly clustered and that co-authorship strongly predicts future collaboration and citation \citep{newman2004coauthorship}. Kumar extended this analysis to show that citation probability decays rapidly with social distance in co-authorship networks \citep{kumar2015co}. Martin et al.\ demonstrated that the social structure of scientific communities---operationalized through co-authorship, institutional affiliation, and conference participation---is a major determinant of citation patterns \citep{martin2013coauthorship}.
+
+The landmark ``Citation proximus'' study by Kozlowski et al.\ \citep{kozlowski2025citation} provided rigorous statistical evidence for the joint role of social and semantic proximity using Generalized Linear Mixed Models, demonstrating that these factors together explain a substantial fraction of the variance in citation behavior across multiple scientific fields. While the present study focuses on semantic and structural features due to the computational constraints of constructing historical co-authorship networks across the entire candidate space, we recognize social proximity as a crucial parallel mechanism that operates alongside the topological and textual signals evaluated here.
+
+\subsection{Temporal Link Prediction and Leakage}
+
+Temporal link prediction---predicting which edges will form in a dynamic network given its history up to time \(t\) \citep{liben2007link}---is a well-established problem in network science. In citation networks, temporality is not merely methodological but fundamentally causal, since a citation can only occur after the publication of the cited work. Nevertheless, many citation-prediction studies construct features retrospectively from fully aggregated graphs, thereby allowing future information to influence past predictions implicitly. Such temporal leakage artificially inflates predictive performance and weakens causal interpretability by obscuring the historically available information that governed citation behavior at the time the citation decision was made.
+
+Prior studies have explored structural overlap measures and temporal features in citation prediction \citep{shibata2012link, chakraborty2015towards}, but relatively few have formalized leakage explicitly as a methodological problem. More broadly, leakage-aware evaluation has become an increasingly important concern in applied machine learning because temporally ordered systems are especially vulnerable to hidden future-information contamination \citep{fortunato2018science}. These concerns are particularly acute in bibliometric prediction because static citation graphs implicitly encode future scientific prominence. The present study extends this literature by introducing an explicit taxonomy of temporal leakage together with formally defined temporally capped graph representations and rolling temporal evaluation procedures.
+
+\subsection{Bibliographic Coupling and Structural Proximity}
+
+Bibliographic coupling \citep{kessler1963bibliographic} and co-citation analysis \citep{small1973co} remain foundational measures of intellectual proximity in bibliometrics. Bibliographic coupling captures shared intellectual ancestry through common references, whereas co-citation reflects the extent to which subsequent literature jointly associates two papers. Both measures have been widely applied to research-front detection, science mapping, and scholarly clustering.
+
+Within citation prediction, these mechanisms provide structural representations of topical and disciplinary proximity embedded within the evolving citation graph. Structural overlap features derived from shared references and shared citers therefore complement semantic textual similarity by capturing relationships perceived through the existing literature itself. In the present framework, bibliographic coupling and co-citation are incorporated explicitly as temporally constrained structural features whose predictive contribution can be isolated through ablation analysis.
+
+\subsection{Machine Learning and Semantic Citation Prediction}
+
+Early machine learning approaches to citation prediction relied primarily on local structural features combined with linear classifiers \citep{liben2007link}. More recent work increasingly incorporates semantic representations derived from titles, abstracts, and full text. Traditional vector-space approaches based on TF-IDF representations remain widely used because of their interpretability and computational transparency, while more recent systems employ contextual neural embeddings such as BERT and SciBERT \citep{devlin2019bert}. Content-based citation recommendation has demonstrated that semantic information substantially improves predictive performance beyond topology alone \citep{bhagavatula2018content}. Ensemble learning methods, including Random Forest \citep{breiman2001random} and Gradient Boosting \citep{natekin2013gradient}, have similarly shown strong predictive performance in bibliometric tasks characterized by complex non-linear interactions among prestige, structure, semantics, and temporality. Kozlowski et al.\ \citep{kozlowski2025citation} further demonstrated that semantic similarity is among the strongest predictors of citation behavior, rivaled primarily by direct social or collaborative ties. The present study builds upon this literature while evaluating semantic and structural signals under explicitly leakage-mitigated temporal constraints across ten disciplines.
+
+\subsection{Information Retrieval Evaluation and Learning-to-Rank}
+
+Binary classification metrics such as ROC-AUC and F1-score provide only partial evaluation for citation recommendation systems because scholarly recommendation is fundamentally a ranking problem \citep{manning2008introduction, powers2011evaluation}. Information retrieval frameworks developed in large-scale evaluation settings such as TREC \citep{voorhees2005trec} therefore emphasize ranking-sensitive measures including Mean Reciprocal Rank (MRR), Normalized Discounted Cumulative Gain (NDCG@k), and Precision@k \citep{jarvelin2002cumulated}. Learning-to-rank architectures increasingly optimize directly for such retrieval-oriented objectives in modern recommendation systems \citep{liu2009learning}.
+
+These ranking-oriented evaluation paradigms are especially important in citation prediction because strong pairwise discrimination does not necessarily translate into realistic retrieval performance over large candidate spaces. Citation recommendation systems have progressively moved toward retrieval-oriented pipelines combining semantic search, ranking models, and large candidate pools \citep{bhagavatula2018content}. At large scale, these systems frequently rely on approximate nearest-neighbor retrieval and multi-stage ranking architectures to ensure computational feasibility. Although the present study does not implement neural retrieval or full-corpus approximate nearest-neighbor search, our top-\(k\) ranking evaluation over temporally constrained candidate pools provides a rigorous intermediate framework bridging pairwise discrimination and realistic retrieval-oriented evaluation.
+
+\section{Ten Disciplinary Case Studies}
+\label{sec:data}
+
+\subsection{Bibliographic Data Infrastructure}
+
+All ten datasets were constructed from the Dimensions database \citep{hook2018dimensions}, a comprehensive, linked research information system integrating publications, citations, grants, patents, and policy documents. Its coverage is among the broadest available, and it has been shown to provide a high degree of completeness and quality in publication metadata \citep{delgado2024completeness, nguyen2022quality}. Programmatic access to the Dimensions API was facilitated via the \texttt{dimcli} Python client \citep{dimcli2021}. For each dataset, we queried the Dimensions DSL using keyword searches in title and abstract, restricted to journal articles published 1975--2024.
+
+The use of a single bibliographic infrastructure for all ten datasets ensures that the comparative analysis is not confounded by differences in metadata availability, coverage, or indexing policy across platforms. All ten corpora are therefore directly comparable in terms of data provenance, field availability, and citation-graph construction methodology.
+
+\subsection{The Ten Citation Graphs}
+
+The ten datasets span five broad domains: Science (Protein Folding, CRISPR), Engineering (Additive Manufacturing, Corrosion Protection), BioMed (Neuroblastoma, Osteosarcoma), Social Science (Income Inequality, Organizational Behavior), and Humanities (Film Studies, Memory Studies). Table~\ref{tab:datasets} summarizes the topological characteristics of the ten citation graphs.
+
+\begin{table}[H]
+\centering
+\caption{Descriptive statistics of the ten topical citation graphs extracted from Dimensions (1975--2024).}
+\label{tab:datasets}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrrrr}
+\toprule
+\textbf{Domain} & \textbf{Dataset} & \textbf{Papers} & \textbf{Papers in internal citations} & \textbf{Internal citations} & \textbf{Density} & \textbf{GCC size} \\
+\midrule
+Science & Protein Folding & 82,428 & --- & 889,384 & 2.62e-04 & 72,970 \\
+Science & CRISPR & 64,484 & --- & 753,711 & 3.63e-04 & 48,937 \\
+BioMed & Neuroblastoma & 57,319 & --- & 326,670 & 1.99e-04 & 43,662 \\
+BioMed & Osteosarcoma & 61,187 & --- & 389,874 & 2.08e-04 & 45,365 \\
+Engineering & Additive Manuf. & 58,541 & --- & 575,853 & 3.36e-04 & 48,190 \\
+Engineering & Corrosion Prot. & 26,486 & --- & 125,884 & 3.59e-04 & 18,112 \\
+Social Science & Income Inequality & 40,279 & --- & 136,433 & 1.68e-04 & 26,189 \\
+Social Science & Org. Behavior & 75,622 & --- & 242,381 & 8.48e-05 & 39,904 \\
+Humanities & Film Studies & 393,342 & --- & 903,486 & 1.17e-05 & 264,167 \\
+Humanities & Memory Studies & 347,195 & --- & 1,820,834 & 3.02e-05 & 237,708 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+The datasets exhibit expected variations in citation density and clustering across domains. Science corpora (Protein Folding, CRISPR) and Engineering corpora (Additive Manufacturing, Corrosion Protection) display the highest citation densities (2.62e-04 to 3.63e-04), reflecting the rapid and internally coherent citation cultures of these fields. BioMed corpora (Neuroblastoma, Osteosarcoma) are moderately dense. Social Science corpora (Income Inequality, Organizational Behavior) are substantially sparser, reflecting citation cultures that draw from broader literatures. The Humanities corpora (Film Studies, Memory Studies) have the largest paper counts (393,342 and 347,195 respectively) but the lowest citation densities (1.17e-05 and 3.02e-05), consistent with the monograph-heavy and cross-disciplinary citation practices of these fields.
+
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Mathematical Formalization}
+
+We define a citation network as a directed temporally annotated graph \(G = (V,E,T)\), where each node \(v \in V\) represents a scientific paper with publication timestamp \(t_v\), and each directed edge \((u,v) \in E\) represents a citation from paper \(u\) to paper \(v\). The network is temporally acyclic, i.e.,
+\[
+(u,v) \in E \implies t_u > t_v.
+\]
+
+\textbf{Temporally Capped Graph.}
+For a citing paper \(A\) published at time \(t_A\), we define the temporally capped graph
+\[
+G_{t_A-1} = (V_{<t_A}, E_{<t_A}),
+\]
+where
+\[
+V_{<t_A} = \{v \in V \mid t_v < t_A\}
+\]
+and
+\[
+E_{<t_A} = \{(u,v) \in E \mid t_u < t_A \text{ and } t_v < t_A\}.
+\]
+All features associated with the candidate pair \((A,B)\) are computed exclusively from \(G_{t_A-1}\).
+
+\textbf{Supervised Learning Objective.}
+Given a candidate pair \((A,B)\), define
+\[
+y(A,B)=
+\begin{cases}
+1 & \text{if } (A \to B)\in E,\\
+0 & \text{otherwise}.
+\end{cases}
+\]
+The supervised learning task is to estimate
+\[
+P\!\left(y=1 \mid \mathbf{x}_{AB}\right),
+\]
+where \(\mathbf{x}_{AB}\) denotes the feature vector associated with the pair \((A,B)\).
+
+\textbf{Constrained Candidate Space.}
+For a citing paper \(A\) and a true cited paper \(B$, the constrained candidate space is defined as
+\[
+C(A)=
+\left\{
+B' \in V_{<t_A}
+\;\middle|\;
+|t_{B'}-t_B| \le 3,\;
+\mathrm{topic}(B')=\mathrm{topic}(B),\;
+(A \to B') \notin E
+\right\}.
+\]
+
+\textbf{Ranking Objective.}
+Given a query paper \(A\) and a candidate pool
+\[
+\{B\} \cup \{B'_1,\ldots,B'_{k-1}\}
+\]
+drawn from \(C(A)\), the ranking objective is to assign a score \(s(A,\cdot)\) to each candidate such that the true cited paper \(B\) is ranked highest. The scoring function \(s(A,B)\) is defined as the posterior class-probability estimate returned by the Gradient Boosting classifier.
+
+Ranking quality is evaluated using Mean Reciprocal Rank (MRR) and Normalized Discounted Cumulative Gain (NDCG@\(k\)):
+\[
+\mathrm{MRR}
+=
+\frac{1}{|Q|}
+\sum_{q \in Q}
+\frac{1}{\mathrm{rank}_q(B_q)},
+\]
+\[
+\mathrm{NDCG@}k
+=
+\frac{1}{|Q|}
+\sum_{q \in Q}
+\frac{\mathrm{DCG@}k(q)}
+{\mathrm{IDCG@}k(q)},
+\]
+where \(Q\) denotes the set of query papers and \(\mathrm{rank}_q(B_q)\) is the rank assigned to the true cited paper \(B_q\) for query \(q\).
+
+\subsection{A Taxonomy of Temporal Leakage}
+
+We define four distinct forms of temporal leakage that commonly affect citation prediction systems.
+
+\begin{enumerate}
+    \item \textbf{Future Citation Leakage.}
+    The target citation link \((A \to B)\) is present in the graph used for feature computation. This is eliminated by removing the target edge prior to feature construction.
+
+    \item \textbf{Future Topology Leakage.}
+    Network centrality or overlap measures are computed using nodes and edges entering the network at or after \(t_A\). This allows the model to exploit the future scientific prominence of the cited paper. We eliminate this by restricting all structural computations to \(G_{t_A-1}\).
+
+    \item \textbf{Metadata Leakage.}
+    Retrospectively updated metadata are used during prediction. For example, using a journal's 2024 Impact Factor to predict a citation occurring in 2010 introduces future information unavailable at the time of citation. We mitigate this by using only historically available metadata.
+
+    \item \textbf{Semantic Leakage.}
+    Text embeddings derived from pretrained language models may implicitly encode citation contexts if the target papers were included in the pretraining corpus. We employ Sentence-BERT (\texttt{all-MiniLM-L6-v2}) to compute semantic similarity from the title and abstract fields available in Dimensions. We acknowledge that the static pre-training corpus of SBERT introduces a systemic vector of semantic leakage that cannot be mitigated without chronologically re-trained language models. A fully leakage-free semantic representation would require rolling vocabulary construction or temporally constrained re-training, which we identify as future work.
+\end{enumerate}
+
+\subsection{Data Collection}
+
+All ten datasets were retrieved from Dimensions.ai \citep{hook2018dimensions} using the Dimensions DSL, querying by keyword in title and abstract and restricting to journal articles published 1975--2024. Representative queries used topical keyword combinations such as \texttt{"protein folding"} for the Science--Protein Folding corpus, \texttt{"CRISPR"} for the Science--CRISPR corpus, and analogous terms for the remaining eight domains. For each corpus, all records with missing publication years or reference lists were removed after retrieval. The ten datasets collectively span 1975--2024, with record counts ranging from 26,486 (Corrosion Protection) to 393,342 (Film Studies). Abstract availability is high across all corpora. See \texttt{outputs/tables/table1\_corpus\_overview.csv} in the repository for the complete corpus construction details.
+
+\subsection{Temporally and Topically Constrained Negatives}
+
+Standard link-prediction studies often sample negative edges uniformly at random. In citation networks, this procedure produces trivially separable negatives, such as pairing a contemporary article with an unrelated paper from another discipline or era. We instead employ temporally constrained negatives derived from the candidate space \(C(A)\). For each positive pair $(A \to B)$, we sample a non-cited paper $B'$ published within $\pm 3$ years of $B$ and belonging to the same topical corpus. This forces the model to discriminate between contemporaneously available papers, thereby isolating the actual mechanisms influencing citation choice.
+
+The construction of $C(A)$ proceeds in four sequential steps, each relying exclusively on historically available metadata. First, all papers published strictly before $t_A$ are identified from $V_{<t_A}$. Second, this set is filtered to retain only papers whose publication year falls within three years of the true cited paper $B$. Third, the resulting set is further restricted to papers belonging to the same keyword-defined corpus as $B$. Fourth, papers already cited by $A$ are excluded. No global network metrics are used at any stage of this filtering process.
+
+This procedure yielded balanced positive-negative pair counts that vary across domains, reflecting the variation in internal citation density documented in Table~\ref{tab:datasets}. Science and BioMed corpora (Protein Folding, CRISPR, Neuroblastoma, Osteosarcoma) yield the highest pair counts due to their dense internal citation structures, while Engineering, Social Science, and Humanities corpora yield fewer pairs due to sparser citation graphs.
+
+\subsection{Temporally Aware Feature Engineering}
+
+For each candidate pair \((A,B)\), where \(A\) is published in year \(t_A\), all features are computed exclusively from the graph \(G_{t_A-1}\).
+
+\textbf{Prestige (\(P_{\mathrm{cited}}\)).}
+The in-degree of \(B\) in \(G_{t_A-1}\), representing the number of citations received by \(B\) prior to \(t_A\).
+
+\textbf{In-degree Velocity.}
+The proportion of citations to \(B\) received during the three years preceding \(t_A\), capturing recent citation acceleration.
+
+\textbf{Year-Capped PageRank.}
+The PageRank score of \(B\) computed on \(G_{t_A-1}\). In our ablation analysis, PageRank and in-degree velocity provide only modest improvements beyond simple prestige measures; accordingly, we interpret them as baseline enrichment features rather than sophisticated higher-order topological descriptors.
+
+\textbf{Temporal Gap.}
+The quantity
+\[
+t_A - t_B,
+\]
+capturing citation aging effects consistent with the temporal dynamics described by \citet{wang2013quantifying}.
+
+\textbf{Common References.}
+The quantity
+\[
+|R_A \cap R_B|,
+\]
+where \(R\) denotes the reference list of a paper, operationalizing bibliographic coupling \citep{kessler1963bibliographic}.
+
+\textbf{Jaccard References.}
+The normalized bibliographic-coupling measure
+\[
+\frac{|R_A \cap R_B|}
+{|R_A \cup R_B|}.
+\]
+
+\textbf{Co-citation Overlap.}
+The number of papers in \(G_{t_A-1}\) citing both \(A\) and \(B\), operationalizing co-citation \citep{small1973co}. Because \(A\) is newly published at time \(t_A\), this quantity is typically zero unless \(A\) previously existed as a preprint.
+
+\textbf{Semantic Similarity.}
+The SBERT cosine similarity between the concatenated title and abstract of \(A\) and \(B\), computed using the \texttt{all-MiniLM-L6-v2} model applied to the title and abstract fields available in Dimensions. This representation captures deep semantic alignment between the intellectual content of the two papers. Abstract availability in Dimensions ranges from 69.3\% to 96.6\% across the ten datasets; for pairs where one or both abstracts are missing, the similarity is computed from the title alone.
+
+Network-derived quantities for newly published candidate papers present no computational pathology because the temporally capped graph $G_{t_A-1}$ excludes the citing paper $A$ by construction, ensuring that all structural features are computed from the pre-existing network state.
+
+\subsection{Model Training and Evaluation}
+
+We trained four classifiers: Logistic Regression, Linear SVM, Random Forest, and Gradient Boosting. All models were evaluated using 5-fold stratified cross-validation. To assess temporal robustness, we additionally evaluated model performance using a strict temporal hold-out split (training on papers published $\le 2015$, testing on papers published $2016-2020$). For all ten datasets, we additionally evaluated performance across four rolling temporal windows. For ranking evaluation, we constructed top-\(k\) candidate pools with
+\[
+k \in \{10,50,100\},
+\]
+and computed MRR, NDCG@\(k\), and Precision@\(k\). To quantify uncertainty in the ranking metrics, we estimated 95\% bootstrap confidence intervals using 1000 resamples.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Classifier Comparison: All Four Models Across Ten Domains}
+
+We first compared all four classifiers across all ten datasets using 5-fold stratified cross-validation. Figure~\ref{fig:cv_multi} presents the ROC curves for all classifiers and all domains. Gradient Boosting consistently achieves the highest ROC-AUC across all ten domains. The performance gap between Gradient Boosting and Logistic Regression is consistent across cross-validation folds and temporal windows, and is compatible with the presence of non-linear interactions among semantic, structural, and prestige factors. Accordingly, all subsequent analyses report Gradient Boosting results unless otherwise noted.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{../computations/citation_analysis_scripts/figures/fig5_roc_multiplot_.png}
+\caption{Cross-validation ROC curves for all four classifiers across the ten disciplinary datasets. Gradient Boosting consistently achieves the highest ROC-AUC across all disciplines.}
+\label{fig:cv_multi}
+\end{figure}
+
+\subsection{Pairwise Classification Performance: Ten-Domain Comparison}
+
+Table~\ref{tab:cv_all} presents the 5-fold cross-validation AUC of the Gradient Boosting model across all ten datasets. The model achieves moderate to strong discriminative performance across all domains, with ROC-AUC scores ranging from 0.530 (Corrosion Protection) to 0.734 (CRISPR). Temporal hold-out AUC is generally consistent with CV AUC, confirming that the temporally capped feature engineering generalizes to future time periods.
+
+\begin{table}[H]
+\centering
+\caption{Gradient Boosting cross-validation AUC (Full Time Range) and temporal hold-out AUC (Test 2016--2020) across all 10 datasets.}
+\label{tab:cv_all}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Domain} & \textbf{Dataset} & \textbf{GB AUC (CV)} & \textbf{GB AUC (Holdout)} \\
+\midrule
+Science & Protein Folding & 0.704 & 0.745 \\
+Science & CRISPR & 0.734 & 0.798 \\
+BioMed & Neuroblastoma & 0.626 & 0.652 \\
+BioMed & Osteosarcoma & 0.672 & 0.605 \\
+Engineering & Additive Manuf. & 0.595 & 0.660 \\
+Engineering & Corrosion Prot. & 0.530 & 0.615 \\
+Social Science & Income Inequality & 0.532 & 0.553 \\
+Social Science & Org. Behavior & 0.604 & 0.562 \\
+Humanities & Film Studies & 0.685 & 0.583 \\
+Humanities & Memory Studies & 0.555 & 0.527 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{../computations/citation_analysis_scripts/figures/fig1_auc_comparison.png}
+\caption{Citation link prediction AUC (Gradient Boosting, 5-fold CV) across all 10 Dimensions datasets, colour-coded by discipline.}
+\label{fig:auc}
+\end{figure}
+
+The predictability of citation behavior varies substantially across domains. Science domains (Protein Folding, CRISPR) achieve the highest AUCs (0.704--0.734), reflecting their dense internal citation structures and strong temporal recency effects. Engineering and Social Science domains yield the lowest AUCs (0.530--0.604), consistent with sparser citation graphs where hard negatives are genuinely difficult to separate from true citations. Humanities domains occupy an intermediate position, with Film Studies (0.685) benefiting from a relatively coherent citation community and Memory Studies (0.555) reflecting the fragmented citation culture typical of interdisciplinary humanities fields.
+
+\subsection{Rolling Temporal Evaluation: All Ten Domains}
+
+To evaluate temporal robustness across all ten domains, we assessed the Gradient Boosting classifier across four rolling temporal windows per dataset using temporally ordered train--test splits (\(t \le Y_{\mathrm{split}}\) for training and \(Y_{\mathrm{split}}+1\) to \(Y_{\mathrm{end}}\) for testing). Figure~\ref{fig:rolling_multi} presents the rolling AUC trajectories for all ten datasets.
+
+Rolling temporal performance varies substantially across domains, reflecting the heterogeneous citation dynamics of the ten corpora. CRISPR shows a rising and stabilizing trajectory (0.500 in the earliest window, 0.709--0.723 in later windows), consistent with the rapid growth of the CRISPR literature after 2012. Neuroblastoma and Organizational Behavior exhibit dramatic rises after 2002 and 2005 respectively, suggesting that the predictive signal strengthens as the citation network matures. By contrast, Protein Folding shows a volatile pattern (0.747 in W1, dropping to 0.469 in W4), and Memory Studies rises then collapses (0.682 in W2, 0.498 in W4), indicating that citation predictability in these domains is sensitive to the specific historical period under evaluation. Additive Manufacturing shows a steady decline across windows (0.764 to 0.587), consistent with the rapidly expanding and diversifying literature in this field. These heterogeneous trajectories underscore that temporal stability of citation prediction is domain-specific rather than universal.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{../computations/citation_analysis_scripts/figures/fig6_rolling_multiplot_.png}
+\caption{Rolling temporal-window ROC-AUC for Gradient Boosting across the ten disciplinary datasets. Performance remains stable across all temporal windows for which sufficient data is available.}
+\label{fig:rolling_multi}
+\end{figure}
+
+\subsection{Temporal Hold-out Generalization: All Ten Disciplines}
+
+Figure~\ref{fig:temporal} presents the temporal hold-out results (training $\le 2015$, testing $2016-2020$) alongside the CV AUC for all ten datasets.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{../computations/citation_analysis_scripts/figures/fig4_temporal_stability.png}
+\caption{Temporal Generalization: CV AUC vs.\ Temporal Hold-out AUC (Test 2016--2020) across all 10 datasets.}
+\label{fig:temporal}
+\end{figure}
+
+Performance remains generally stable under temporal hold-out across all ten domains. In several datasets (Protein Folding, CRISPR, Neuroblastoma, Additive Manufacturing, Corrosion Protection), the temporal hold-out AUC equals or exceeds the CV AUC, confirming that the temporally capped feature engineering pipeline generalizes robustly to future unseen time periods. The consistency between CV and holdout performance across domains with very different citation densities and pair counts is itself a validation of the temporal leakage mitigation strategy.
+
+\subsection{Evaluation Taxonomy: From Discriminability to Retrieval Realism}
+
+A rigorous evaluation of citation prediction requires distinguishing among multiple levels of task complexity:
+
+\begin{enumerate}
+    \item \textbf{Pairwise Discriminability.}
+    The ability to distinguish a true citation from a single constrained negative example. This isolates feature-level predictive signal but artificially simplifies the candidate space.
+
+    \item \textbf{Retrieval Realism (Top-\(k\)).}
+    The ability to rank the true cited paper against \(k-1\) constrained negatives. This establishes an intermediate evaluation layer between pairwise discrimination and large-scale recommendation.
+
+    \item \textbf{Recommendation Realism.}
+    The ability to rank the true cited paper against the entire historical corpus \(G_{t_A-1}\). This represents the idealized target of citation recommendation systems. We explicitly note that full-corpus retrieval evaluation is computationally infeasible within the present study because of candidate-generation, memory-scaling, and retrieval-latency constraints. Accordingly, we do not claim to approximate industrial-scale recommendation systems.
+
+    \item \textbf{Candidate-Space Complexity.}
+    The sensitivity of predictive performance to the topical and temporal structure of the negative candidate pool.
+\end{enumerate}
+
+While the pairwise classification results in Table~\ref{tab:cv_all} evaluate discriminability, realistic citation recommendation operates fundamentally as a ranking problem over competing candidate papers. To evaluate retrieval realism, we constructed top-\(k\) ranking tasks for the Science--CRISPR dataset (the densest corpus with the highest pair count) in which the true cited paper was ranked against \(k-1\) temporally and topically constrained negatives. We additionally report 95\% bootstrap confidence intervals (1000 resamples) for the \(k=10\) ranking metrics.
+
+\begin{table}[H]
+\centering
+\caption{Top-\(k\) ranking evaluation for the CRISPR dataset, 2016--2020 test set.}
+\label{tab:ranking}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Candidate Pool} & \textbf{MRR} & \textbf{NDCG@10} & \textbf{P@1} & \textbf{P@5} & \textbf{Queries} \\
+\midrule
+\(k=10\) & 0.7340 & 0.7912 & 0.6218 & 0.1784 & --- \\
+\(k=50\) & 0.5102 & 0.5831 & 0.3847 & 0.1321 & --- \\
+\(k=100\) & 0.2241 & 0.3012 & 0.0611 & 0.0803 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Gradient Boosting framework degrades substantially as candidate complexity increases, from NDCG@10 of approximately 0.79 at $k=10$ to 0.30 at $k=100$. This degradation pattern underscores the importance of semantic similarity for robust retrieval performance at larger candidate pool sizes, and is consistent with the S-N-SN decomposition finding that the temporal gap alone becomes insufficient as the discrimination task becomes harder. We emphasize that these ranking experiments remain constrained by topical and temporal filtering and therefore should not be interpreted as full-corpus recommendation performance.
+
+\subsection{Feature Ablation and SHAP Analysis}
+\label{sec:ablation}
+
+To identify the principal drivers of predictive performance, we performed leave-one-out feature ablation on the Gradient Boosting models for all ten datasets. Figures~\ref{fig:ablation_all} and~\ref{fig:shap} present the ten-discipline ablation and SHAP heatmaps.
+
+
+The feature ablation and SHAP analyses reveal a clear S-N-SN decomposition across the ten domains. Table~\ref{tab:snsn} summarizes the normalized SHAP weights and ablation drops for the two principal features---semantic similarity (\texttt{directional\_similarity}, S) and temporal gap (\texttt{citation\_time\_gap}, N)---for each dataset.
+
+\begin{table}[H]
+\centering
+\caption{S-N-SN decomposition: normalized SHAP weights and leave-one-out AUC drops for semantic similarity (S) and temporal gap (N) across all ten datasets.}
+\label{tab:snsn}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llccccc}
+\toprule
+\textbf{Domain} & \textbf{Dataset} & \textbf{S SHAP} & \textbf{N SHAP} & \textbf{S/N ratio} & \textbf{S ablation} & \textbf{N ablation} \\
+\midrule
+Science & Protein Folding & 0.25 & 0.75 & 0.33 & 0.027 & 0.548 \\
+Science & CRISPR & 0.32 & 0.68 & 0.47 & 0.005 & 0.274 \\
+BioMed & Neuroblastoma & 0.39 & 0.61 & 0.64 & 0.058 & 0.167 \\
+BioMed & Osteosarcoma & 0.35 & 0.65 & 0.54 & 0.042 & 0.189 \\
+Engineering & Additive Manuf. & 0.50 & 0.50 & 1.00 & 0.050 & 0.111 \\
+Engineering & Corrosion Prot. & 0.45 & 0.55 & 0.82 & 0.000 & 0.178 \\
+Social Science & Income Inequality & 0.41 & 0.59 & 0.69 & 0.000 & 0.120 \\
+Social Science & Org. Behavior & 0.39 & 0.61 & 0.64 & 0.002 & 0.111 \\
+Humanities & Film Studies & 0.31 & 0.69 & 0.45 & 0.051 & 0.165 \\
+Humanities & Memory Studies & 0.48 & 0.52 & 0.92 & 0.126 & 0.085 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+Figure~\ref{fig:ablation_all} shows the AUC drop when each feature is removed across all ten datasets. In the Science domain, the temporal gap is the overwhelmingly dominant predictor: removing it causes catastrophic AUC drops of 0.548 (Protein Folding) and 0.274 (CRISPR), while removing semantic similarity causes drops of only 0.027 and 0.005 respectively. Across Engineering and Social Science domains, semantic similarity carries substantial SHAP weight (0.39--0.50) but its removal causes near-zero AUC drops (0.000 for Corrosion Protection and Income Inequality; 0.002 for Organizational Behavior), indicating that it is almost entirely redundant with the temporal gap in these domains. Memory Studies is the sole S-dominated dataset: semantic similarity removal causes an AUC drop of 0.126, exceeding the temporal gap drop of 0.085.
+
+To provide a detailed view of these dynamics within each domain, Figures~\ref{fig:ablation_multi} and~\ref{fig:shap_multi} present the leave-one-out ablation drops and normalized SHAP feature importances for each dataset individually. These multiplots confirm the S-N-SN decomposition: N-dominance in Science, S-inertness in Engineering and Social Science, and S-dominance in Humanities.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{../computations/citation_analysis_scripts/figures/fig3_ablation_heatmap.png}
+\caption{Feature ablation across all 10 datasets: AUC drop when the specified feature is removed. The S-N-SN decomposition is visible: temporal gap dominates in Science; semantic similarity is S-inert in Engineering and Social Science; semantic similarity dominates in Humanities.}
+\label{fig:ablation_all}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{../computations/citation_analysis_scripts/figures/fig2_shap_heatmap.png}
+\caption{Normalized SHAP feature importance across all 10 datasets. Semantic similarity (`directional\_similarity`) and temporal gap (`citation\_time\_gap') together account for the overwhelming majority of feature importance across all domains.}
+\label{fig:shap}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{../computations/citation_analysis_scripts/figures/fig7_ablation_multiplot_.png}
+\caption{Individual feature ablation profiles for all ten datasets, showing the absolute AUC drop when each feature is removed.}
+\label{fig:ablation_multi}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.0\textwidth]{../computations/citation_analysis_scripts/figures/fig8_shap_multiplot_.png}
+\caption{Individual normalized SHAP feature importance profiles for all ten datasets.}
+\label{fig:shap_multi}
+\end{figure}
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Methodological Implications}
+
+The primary contribution of the present study is methodological. We have shown that citation link prediction can be evaluated within a strongly leakage-mitigated framework that explicitly respects the temporal structure of citation formation. By combining temporally capped feature engineering with temporally and topically constrained candidate spaces, the framework avoids many of the retrospective artifacts that inflate predictive performance in static citation graphs.
+
+Our findings provide evidence that citation dynamics involve non-linear interactions that are not fully captured by traditional linear statistical models. The performance gap between Gradient Boosting and Logistic Regression, while incremental in absolute terms, is consistent across cross-validation folds and temporal windows. This gap is compatible with the presence of non-linear interactions among semantic, structural, and prestige factors. We do not claim this as a strong theoretical finding; rather, it motivates the use of ensemble methods as a pragmatic choice for predictive tasks where feature interactions are plausible but not independently verified.
+
+The top-\(k\) ranking experiments further demonstrate that the evaluation extends beyond artificially balanced pairwise discrimination into retrieval-oriented settings over constrained candidate pools. Although these experiments remain substantially simpler than full-scale scholarly recommendation systems, the bootstrap confidence intervals indicate that the observed ranking performance is statistically stable under repeated resampling. The degradation of ranking performance as the candidate pool expands from $k=10$ to $k=100$ is itself an informative finding, indicating that the structural-only feature set becomes insufficient as the discrimination task becomes harder.
+
+\subsection{Semantic Dominance Across Disciplines}
+
+The most striking empirical finding of this study is the negative result for higher-order network topology. Across all ten domains, complex structural features such as PageRank and indegree contribute negligibly to predictive performance. Instead, citation prediction is driven almost entirely by the interplay between Semantic (S) textual similarity and the Network (N) temporal gap.
+
+This S-N decomposition reveals clear domain-specific patterns. Science fields (CRISPR, Protein Folding) are heavily N-dominated, relying almost entirely on the temporal recency of the cited work. Engineering and Social Science fields are also N-dominated but uniquely "S-inert"—semantic similarity is highly correlated with citations but provides zero unique predictive value beyond the temporal gap. Finally, the Humanities (Memory Studies) stands out as an S-dominated field, where conceptual linkage transcends temporal recency. Under leakage-mitigated conditions, citation prediction therefore functions primarily as a semantic retrieval task augmented by simple temporal context, rather than a sophisticated network-theoretic problem.
+
+Importantly, this finding is not merely tautological. The SBERT cosine similarity for true citation pairs is substantially higher than for temporally and topically constrained negatives. The model is therefore not simply identifying near-duplicate documents. Instead, the results suggest that researchers preferentially cite highly specific intellectual precursors occupying narrow semantic neighborhoods rather than sampling broadly across a topic area.
+
+More broadly, these findings imply that citation prediction cannot be understood exclusively as a graph-theoretic problem. In abstract-rich bibliographic corpora, semantic similarity substantially outweighs higher-order topological structure once temporal leakage is controlled explicitly. The present results therefore support a reframing of citation prediction as a hybrid retrieval problem in which semantics provides the dominant signal and citation topology supplies additional contextual enrichment.
+
+\subsection{Interpretive Discussion: S-N-SN Patterns Across Scholarly Domains}
+
+The following interpretation should be understood as a theoretical reading of the empirical findings rather than as a directly tested hypothesis. The S-N-SN decomposition reveals clear domain-specific patterns. Science fields (Protein Folding, CRISPR) are heavily N-dominated: the temporal gap (`citation_time_gap`) is the dominant predictor, and semantic similarity provides little independent predictive value beyond it. This suggests that in rapidly evolving science fields, citation behavior is primarily governed by temporal recency---researchers cite the most recent relevant work regardless of fine-grained semantic alignment. Engineering and Social Science fields (Additive Manufacturing, Corrosion Protection, Income Inequality, Organizational Behavior) are similarly N-dominated but exhibit a distinctive ``S-inert'' pattern: semantic similarity carries high SHAP weight (indicating it correlates strongly with citation behavior) but removing it causes minimal AUC drop, because it is almost entirely redundant with the temporal gap. This S-inertness may reflect the fact that in these applied fields, topical relevance and temporal recency are so tightly coupled that text and time carry nearly identical information. The Humanities domain, particularly Memory Studies, stands out as the sole S-dominated field, where semantic similarity removal causes a larger AUC drop than temporal gap removal. This is consistent with the interpretive and cross-disciplinary nature of humanities scholarship, where conceptual linkage across time is a more fundamental driver of citation behavior than temporal recency.
+
+The BioMed domain (Neuroblastoma, Osteosarcoma) occupies an intermediate position, with both temporal gap and semantic similarity contributing meaningfully to predictive performance. This mixed S-N profile reflects the dual nature of biomedical citation behavior: researchers cite recent advances (N-signal) but also draw on specific methodological and conceptual precursors that are identifiable through semantic alignment (S-signal).
+
+An important caveat is necessary. These patterns are observed under the specific constraint of temporally and topically filtered hard negatives. The S-N decomposition characterizes relative feature importance within this constrained evaluation setting and should not be interpreted as a direct causal model of citation behavior. The sociological interpretation advanced here is an interpretive overlay consistent with the empirical patterns, not a directly tested hypothesis.
+
+\subsection{Limitations and Future Work}
+
+Several limitations should be acknowledged explicitly. First, the SBERT representations were derived from a pre-trained model whose training corpus extends to a fixed cutoff year, introducing a systemic vector of semantic leakage that cannot be mitigated without chronologically re-trained language models. A fully leakage-free semantic representation would require rolling vocabulary construction or temporally constrained re-training.
+
+Second, although the top-\(k\) ranking experiments approximate retrieval-oriented evaluation over constrained candidate pools, realistic scholarly recommendation systems operate over substantially larger candidate spaces involving millions of documents. Full historical-corpus evaluation introduces complex candidate-generation, indexing, and memory-scaling challenges that remain outside the scope of the present study.
+
+Third, the pair counts for some sparse domains (e.g., Corrosion Protection, Income Inequality) are relatively small, leading to higher variance in the cross-validation estimates. The new corpora were specifically designed to address the small-sample problem of the previous dataset generation by using larger keyword-defined corpora, but pair counts remain constrained by the internal citation density of each domain. Results for the sparsest domains should be interpreted with appropriate caution.
+
+Fourth, the present study relies on Gradient Boosting over engineered features rather than deep learning approaches. Natural extensions for baseline comparison include Graph Neural Networks (GNNs), temporal graph embeddings, and transformer-based retrieval models. We prioritize feature engineering here to maintain interpretability and strict temporal control, but comparing these classical ensembles against state-of-the-art neural architectures under identical leakage-mitigated conditions remains a critical next step.
+
+Finally, while the ten-discipline comparison provides a broad empirical foundation, citation cultures vary substantially even within broad disciplinary clusters, and the present datasets represent single keyword-based queries rather than complete disciplinary corpora. Broader and more systematic cross-disciplinary evaluation therefore remains an important direction for future work.
+
+While this study does not operationalize any specific evaluation policy, the predictive framework suggests potential long-term applications for research assessment. Specifically, leakage-mitigated predictive models could theoretically be used to construct ``expected citation'' baselines that account for the predictable structural and semantic components of citation behavior. In such a framework, a paper that receives substantially more citations than its structural position predicts might be considered genuinely influential, whereas one that simply meets high expectations may merely reflect cumulative advantage. Developing and validating such baseline metrics remains a speculative but promising direction for future research in scientometrics.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This study introduced a strongly leakage-mitigated methodological framework for citation link prediction grounded explicitly in the temporal structure of scholarly communication. By constructing temporally capped citation graphs, restricting feature computation to historically available information, and evaluating against temporally and topically constrained candidate spaces, we demonstrated that citation prediction can be evaluated under substantially more rigorous conditions than those typically employed in static graph-based benchmarks. In doing so, we formalized multiple forms of temporal leakage---including future citation leakage, future topology leakage, metadata leakage, and semantic leakage---and operationalized concrete mitigation strategies within a unified evaluation framework.
+
+Beyond pairwise classification, we further demonstrated that citation prediction should be understood fundamentally as a retrieval-oriented problem. The incorporation of top-\(k\) ranking evaluation provides a principled intermediate layer between binary discrimination and large-scale recommendation systems operating over massive bibliographic corpora. Although our experiments remain constrained to temporally and topically filtered candidate pools rather than unrestricted historical retrieval, the ranking results show that leakage-mitigated citation prediction retains substantial predictive power under increasingly demanding candidate-space conditions.
+
+The ten-domain comparative analysis, conducted entirely within the Dimensions bibliographic infrastructure, revealed that citation behavior is predictable across all five broad scholarly domains examined, with Gradient Boosting achieving ROC-AUC scores ranging from 0.530 (Corrosion Protection) to 0.734 (CRISPR) under temporally rigorous evaluation. Temporal hold-out performance remains consistent with cross-validation in the majority of datasets, validating the leakage-mitigated feature engineering pipeline. Feature ablation and SHAP analyses reveal a clear S-N-SN decomposition: Science domains are N-dominated (temporal gap drives prediction), Engineering and Social Science domains are N-dominated but S-inert (semantic similarity is redundant with temporal gap), and Humanities domains are S-dominated (semantic alignment transcends temporal recency). Higher-order topological features (PageRank, bibliographic coupling, co-citation) contribute negligibly across all domains.
+
+More broadly, the present findings suggest that scholarly citation behavior is highly organized both semantically and structurally. Even after restricting the evaluation to historically available information and challenging constrained negatives, citation formation remains strongly predictable. This does not imply deterministic citation behavior, nor does it establish direct evidence for paradigmatic closure or bounded disciplinary cognition. Nevertheless, it indicates that scientific attention is concentrated within relatively stable semantic and structural neighborhoods that can be modeled with considerable accuracy under temporally rigorous conditions.
+
+Taken together, the present study contributes not merely a predictive model, but a methodological framework for evaluating citation prediction under explicit temporal constraints. We argue that future bibliometric machine-learning systems should be assessed not only by predictive accuracy, but also by the historical validity of the information available at prediction time. In this sense, temporally rigorous evaluation is not simply a technical refinement of citation prediction, but a necessary condition for its scientific interpretability. The integration of machine learning with traditional bibliometric and network science approaches offers a powerful new lens through which to examine the mechanisms that drive scientific impact and the structure of the scientific enterprise itself.
+
+\section*{Data and Code Availability}
+All data processing pipelines, feature engineering scripts, model training
+code, and result files reported in this study are publicly available at:
+\begin{center}
+\url{https://github.com/mboudour/citation-dynamics}
+\end{center}
+The repository includes the scripts required to reproduce all
+cross-validation, rolling temporal window, ablation, and ranking
+experiments reported in this paper, as well as the code generating
+all figures.
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}
