@@ -21,9 +21,11 @@ FEAT_DIR = SCRIPT_DIR / "features"
 CKPT_DIR = SCRIPT_DIR / "sbert_checkpoints"
 
 DATASETS = [
-    "darkmatter", "LIS", "fatigue_crack", "environmental_engineering",
-    "neuroblastoma", "osteosarcoma", "political_participation", 
-    "welfare_state", "archaeology", "art_history"
+    "protein_folding", "CRISPR",
+    "neuroblastoma", "osteosarcoma",
+    "additive_manufacturing", "corrosion_protection",
+    "income_inequality", "organizational_behavior",
+    "film_studies", "memory_studies",
 ]
 
 def log(msg):

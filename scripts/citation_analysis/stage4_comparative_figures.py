@@ -28,22 +28,24 @@ FIG_DIR = SCRIPT_DIR / "figures"
 os.makedirs(FIG_DIR, exist_ok=True)
 
 DATASETS = [
-    "darkmatter", "LIS", "fatigue_crack", "environmental_engineering",
-    "neuroblastoma", "osteosarcoma", "political_participation", 
-    "welfare_state", "archaeology", "art_history"
+    "protein_folding", "CRISPR",
+    "neuroblastoma", "osteosarcoma",
+    "additive_manufacturing", "corrosion_protection",
+    "income_inequality", "organizational_behavior",
+    "film_studies", "memory_studies",
 ]
 
 DISCIPLINES = {
-    "darkmatter": "Science",
-    "LIS": "Science",
-    "fatigue_crack": "Engineering",
-    "environmental_engineering": "Engineering",
-    "neuroblastoma": "BioMed",
-    "osteosarcoma": "BioMed",
-    "political_participation": "Social Science",
-    "welfare_state": "Social Science",
-    "archaeology": "Humanities",
-    "art_history": "Humanities"
+    "protein_folding":         "Science",
+    "CRISPR":                  "Science",
+    "neuroblastoma":           "BioMed",
+    "osteosarcoma":            "BioMed",
+    "additive_manufacturing":  "Engineering",
+    "corrosion_protection":    "Engineering",
+    "income_inequality":       "Social Science",
+    "organizational_behavior": "Social Science",
+    "film_studies":            "Humanities",
+    "memory_studies":          "Humanities",
 }
 
 FEATURES = ["temporal_indegree", "citation_time_gap", "temporal_pagerank", "directional_similarity"]

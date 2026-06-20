@@ -43,9 +43,11 @@ OUT_DIR = SCRIPT_DIR / "results"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 DATASETS = [
-    "darkmatter", "LIS", "fatigue_crack", "environmental_engineering",
-    "neuroblastoma", "osteosarcoma", "political_participation", 
-    "welfare_state", "archaeology", "art_history"
+    "protein_folding", "CRISPR",
+    "neuroblastoma", "osteosarcoma",
+    "additive_manufacturing", "corrosion_protection",
+    "income_inequality", "organizational_behavior",
+    "film_studies", "memory_studies",
 ]
 
 FEATURES = ["temporal_indegree", "citation_time_gap", "temporal_pagerank", "directional_similarity"]

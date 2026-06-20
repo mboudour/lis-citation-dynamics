@@ -1,14 +1,14 @@
 """
-Stage 5: Per-Dataset Multiplots (2×5 grids)
-============================================
-Reads the Stage 2 pair files and Stage 3 JSON results and produces
-four publication-quality multiplot figures, each a 2×5 grid of subplots
-(one panel per dataset):
+Stage 5: Per-Dataset Multiplots (4×3 grids, 10 panels + 2 hidden)
+==================================================================
+Reads the Stage 2b pair files and Stage 3 JSON results and produces
+four publication-quality multiplot figures, each a 4×3 grid of subplots
+(one panel per dataset, last 2 cells hidden):
 
-  fig5_roc_multiplot.png      – CV ROC curves (all 4 classifiers)
-  fig6_rolling_multiplot.png  – Rolling temporal AUC (Gradient Boosting)
-  fig7_ablation_multiplot.png – Leave-one-out ablation AUC drop per feature
-  fig8_shap_multiplot.png     – Normalized SHAP importance per feature
+  fig5_roc_multiplot_.png      – CV ROC curves (all 4 classifiers)
+  fig6_rolling_multiplot_.png  – Rolling temporal AUC (Gradient Boosting)
+  fig7_ablation_multiplot_.png – Leave-one-out ablation AUC drop per feature
+  fig8_shap_multiplot_.png     – Normalized SHAP importance per feature
 
 All outputs go to:
   <script_dir>/figures/
@@ -47,47 +47,46 @@ os.makedirs(FIG_DIR, exist_ok=True)
 
 # ── Dataset registry ───────────────────────────────────────────────────────
 DATASETS = [
-    "darkmatter", "LIS", "fatigue_crack", "environmental_engineering",
-    "neuroblastoma", "osteosarcoma", "political_participation",
-    "welfare_state", "archaeology", "art_history",
+    "protein_folding", "CRISPR",
+    "neuroblastoma", "osteosarcoma",
+    "additive_manufacturing", "corrosion_protection",
+    "income_inequality", "organizational_behavior",
+    "film_studies", "memory_studies",
 ]
 
 LABELS = {
-    "darkmatter":               "Dark Matter",
-    "LIS":                      "Info Literacy (LIS)",
-    "fatigue_crack":            "Fatigue Crack",
-    "environmental_engineering":"Env. Engineering",
+    "protein_folding":          "Protein Folding",
+    "CRISPR":                   "CRISPR",
     "neuroblastoma":            "Neuroblastoma",
     "osteosarcoma":             "Osteosarcoma",
-    "political_participation":  "Political Partic.",
-    "welfare_state":            "Welfare State",
-    "archaeology":              "Archaeology",
-    "art_history":              "Art History",
+    "additive_manufacturing":   "Additive Manuf.",
+    "corrosion_protection":     "Corrosion Prot.",
+    "income_inequality":        "Income Inequality",
+    "organizational_behavior":  "Org. Behavior",
+    "film_studies":             "Film Studies",
+    "memory_studies":           "Memory Studies",
 }
 
 DISCIPLINE_COLORS = {
-    "darkmatter":               "#1f77b4",   # Science – blue
-    "LIS":                      "#1f77b4",
-    "fatigue_crack":            "#ff7f0e",   # Engineering – orange
-    "environmental_engineering":"#ff7f0e",
+    "protein_folding":          "#1f77b4",   # Science – blue
+    "CRISPR":                   "#1f77b4",
     "neuroblastoma":            "#2ca02c",   # BioMed – green
     "osteosarcoma":             "#2ca02c",
-    "political_participation":  "#d62728",   # Social Science – red
-    "welfare_state":            "#d62728",
-    "archaeology":              "#9467bd",   # Humanities – purple
-    "art_history":              "#9467bd",
+    "additive_manufacturing":   "#ff7f0e",   # Engineering – orange
+    "corrosion_protection":     "#ff7f0e",
+    "income_inequality":        "#d62728",   # Social Science – red
+    "organizational_behavior":  "#d62728",
+    "film_studies":             "#9467bd",   # Humanities – purple
+    "memory_studies":           "#9467bd",
 }
 
-FEATURES = ["prestige_cited", "temporal_gap", "common_refs",
-            "jaccard_refs", "common_citers", "semantic_similarity"]
+FEATURES = ["temporal_indegree", "citation_time_gap", "temporal_pagerank", "directional_similarity"]
 
 FEATURE_LABELS = {
-    "prestige_cited":    "Prestige",
-    "temporal_gap":      "Temp. Gap",
-    "common_refs":       "Common Refs",
-    "jaccard_refs":      "Jaccard",
-    "common_citers":     "Co-citers",
-    "semantic_similarity": "Semantic",
+    "temporal_indegree":       "Temp. Indegree",
+    "citation_time_gap":       "Citation Lag",
+    "temporal_pagerank":       "Temp. PageRank",
+    "directional_similarity":  "Dir. Sim.",
 }
 
 MODEL_COLORS = {
@@ -97,32 +96,101 @@ MODEL_COLORS = {
     "Gradient Boosting":   "#b47cc7",
 }
 
-# ── Rolling windows (same as manuscript) ──────────────────────────────────
-ROLLING_WINDOWS = [
-    ("2005-2010", 2004, 2005, 2010),
-    ("2010-2015", 2009, 2010, 2015),
-    ("2015-2020", 2014, 2015, 2020),
-    ("2018-2025", 2017, 2018, 2025),
-]
+# ── Rolling windows ────────────────────────────────────────────────────────
+# Windows are generated dynamically per dataset based on its actual year range,
+# so post-2012 datasets (CRISPR, additive_manufacturing) still get 4 points.
+MIN_TRAIN = 2   # minimum training samples for a window to be used
+MIN_TEST  = 2   # minimum test samples for a window to be used
+N_WINDOWS = 4   # target number of rolling windows per dataset
+
+def make_windows(years_array):
+    """Generate N_WINDOWS rolling windows over the dataset's actual year range.
+
+    Strategy: divide [y_min, y_max] into N_WINDOWS+1 equal segments.
+    For window i, training uses all years up to boundary[i],
+    and testing uses years in (boundary[i], boundary[i+1]].
+    This guarantees each window has a non-empty training set (all prior data)
+    and a non-empty test set (the next segment).
+    """
+    y_min = int(years_array.min())
+    y_max = int(years_array.max())
+    span  = y_max - y_min
+    if span < N_WINDOWS + 1:
+        # Too short: use 1-year test windows from y_min+1 onward
+        windows = []
+        for i in range(N_WINDOWS):
+            train_end  = y_min + i
+            test_start = train_end + 1
+            test_end   = test_start
+            if test_end > y_max:
+                break
+            windows.append((f"{test_start}-{test_end}", train_end, test_start, test_end))
+        return windows
+    # Place N_WINDOWS+1 evenly-spaced boundary points
+    boundaries = [y_min + round(i * span / N_WINDOWS) for i in range(N_WINDOWS + 1)]
+    windows = []
+    for i in range(N_WINDOWS):
+        train_end  = boundaries[i]
+        test_start = boundaries[i] + 1
+        test_end   = boundaries[i + 1]
+        label = f"{test_start}-{test_end}"
+        windows.append((label, train_end, test_start, test_end))
+    return windows
 
 # ══════════════════════════════════════════════════════════════════════════
 # Helper: load pairs
 # ══════════════════════════════════════════════════════════════════════════
 def load_pairs(dataset):
-    path = FEAT_DIR / f"{dataset}_pairs_stage2.parquet"
-    if not path.exists():
-        path = FEAT_DIR / f"{dataset}_pairs_stage1.parquet"
-    if not path.exists():
-        return None
-    df = pd.read_parquet(path)
-    return df
+    """Load the richest available pair file for a dataset.
+
+    Priority: stage2b > merge(stage1+stage2) > stage2 > stage1.
+    Ensures directional_similarity column always present (filled 0 if absent).
+    """
+    path2b = FEAT_DIR / f"{dataset}_pairs_stage2b.parquet"
+    path2  = FEAT_DIR / f"{dataset}_pairs_stage2.parquet"
+    path1  = FEAT_DIR / f"{dataset}_pairs_stage1.parquet"
+
+    if path2b.exists():
+        return pd.read_parquet(path2b)
+
+    if path2.exists() and path1.exists():
+        df1 = pd.read_parquet(path1)
+        df2 = pd.read_parquet(path2)
+        if "directional_similarity" in df2.columns:
+            df = df1.merge(
+                df2[["citing_id", "cited_id", "directional_similarity"]],
+                on=["citing_id", "cited_id"], how="left"
+            )
+            df["directional_similarity"] = df["directional_similarity"].fillna(0.0)
+            return df
+        return df1
+
+    if path2.exists():
+        df = pd.read_parquet(path2)
+        if "directional_similarity" not in df.columns:
+            df["directional_similarity"] = 0.0
+        return df
+
+    if path1.exists():
+        df = pd.read_parquet(path1)
+        if "directional_similarity" not in df.columns:
+            df["directional_similarity"] = 0.0
+        return df
+
+    return None
+
+
+def _hide_extra_axes(axes, n_used):
+    for ax in axes[n_used:]:
+        ax.set_visible(False)
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Fig 5 – CV ROC multiplot
 # ══════════════════════════════════════════════════════════════════════════
 def make_roc_multiplot():
-    print("Generating fig5_roc_multiplot.png ...")
-    fig, axes = plt.subplots(2, 5, figsize=(22, 9))
+    print("Generating fig5_roc_multiplot_.png ...")
+    fig, axes = plt.subplots(4, 3, figsize=(16, 12))
     axes = axes.flatten()
 
     for idx, ds in enumerate(DATASETS):
@@ -168,21 +236,23 @@ def make_roc_multiplot():
         ax.set_xlabel("FPR", fontsize=8)
         ax.set_ylabel("TPR", fontsize=8)
         ax.tick_params(labelsize=7)
-        ax.legend(fontsize=6, loc="lower right")
+        ax.legend(fontsize=6, loc="lower left")
 
+    _hide_extra_axes(axes, len(DATASETS))
     fig.suptitle("CV ROC Curves Across 10 Datasets", fontsize=14, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    out = FIG_DIR / "fig5_roc_multiplot.png"
+    out = FIG_DIR / "fig5_roc_multiplot_.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved {out}")
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Fig 6 – Rolling temporal AUC multiplot
 # ══════════════════════════════════════════════════════════════════════════
 def make_rolling_multiplot():
-    print("Generating fig6_rolling_multiplot.png ...")
-    fig, axes = plt.subplots(2, 5, figsize=(22, 9))
+    print("Generating fig6_rolling_multiplot_.png ...")
+    fig, axes = plt.subplots(4, 3, figsize=(16, 12))
     axes = axes.flatten()
 
     for idx, ds in enumerate(DATASETS):
@@ -194,31 +264,29 @@ def make_rolling_multiplot():
                     transform=ax.transAxes)
             continue
 
-        X = df[FEATURES].values.astype(float)
-        y = df["label"].values
-
-        # citing_year column
         if "citing_year" not in df.columns:
             ax.set_title(LABELS[ds])
             ax.text(0.5, 0.5, "No year col", ha="center", va="center",
                     transform=ax.transAxes)
             continue
 
+        X     = df[FEATURES].values.astype(float)
+        y     = df["label"].values
         years = df["citing_year"].values
-        gb = GradientBoostingClassifier(n_estimators=100, random_state=SEED)
+        gb    = GradientBoostingClassifier(n_estimators=100, random_state=SEED)
 
+        windows = make_windows(years)
         window_labels, window_aucs = [], []
-        for wlabel, train_end, test_start, test_end in ROLLING_WINDOWS:
+        for wlabel, train_end, test_start, test_end in windows:
             tr_mask = years <= train_end
             te_mask = (years >= test_start) & (years <= test_end)
-            if tr_mask.sum() < 10 or te_mask.sum() < 4:
+            if tr_mask.sum() < MIN_TRAIN or te_mask.sum() < MIN_TEST:
                 continue
-            # ensure both classes present
             if len(np.unique(y[te_mask])) < 2:
                 continue
             sc = StandardScaler()
             gb.fit(sc.fit_transform(X[tr_mask]), y[tr_mask])
-            yp = gb.predict_proba(sc.transform(X[te_mask]))[:, 1]
+            yp  = gb.predict_proba(sc.transform(X[te_mask]))[:, 1]
             auc = roc_auc_score(y[te_mask], yp)
             window_labels.append(wlabel)
             window_aucs.append(auc)
@@ -229,7 +297,8 @@ def make_rolling_multiplot():
                     marker="o", color=color, lw=2, ms=6)
             ax.set_xticks(range(len(window_labels)))
             ax.set_xticklabels(window_labels, rotation=30, ha="right", fontsize=7)
-            ax.set_ylim([max(0.4, min(window_aucs) - 0.05), 1.02])
+            y_floor = min(0.35, min(window_aucs) - 0.05)
+            ax.set_ylim([y_floor, 1.02])
             for i, v in enumerate(window_aucs):
                 ax.annotate(f"{v:.3f}", (i, v), textcoords="offset points",
                             xytext=(0, 6), ha="center", fontsize=7)
@@ -243,20 +312,22 @@ def make_rolling_multiplot():
         ax.tick_params(labelsize=7)
         ax.grid(axis="y", alpha=0.3)
 
+    _hide_extra_axes(axes, len(DATASETS))
     fig.suptitle("Rolling Temporal AUC (Gradient Boosting) Across 10 Datasets",
                  fontsize=14, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    out = FIG_DIR / "fig6_rolling_multiplot.png"
+    out = FIG_DIR / "fig6_rolling_multiplot_.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved {out}")
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Fig 7 – Ablation multiplot
 # ══════════════════════════════════════════════════════════════════════════
 def make_ablation_multiplot():
-    print("Generating fig7_ablation_multiplot.png ...")
-    fig, axes = plt.subplots(2, 5, figsize=(22, 9))
+    print("Generating fig7_ablation_multiplot_.png ...")
+    fig, axes = plt.subplots(4, 3, figsize=(16, 12))
     axes = axes.flatten()
 
     for idx, ds in enumerate(DATASETS):
@@ -298,20 +369,22 @@ def make_ablation_multiplot():
         ax.tick_params(labelsize=7)
         ax.grid(axis="x", alpha=0.3)
 
+    _hide_extra_axes(axes, len(DATASETS))
     fig.suptitle("Feature Ablation: AUC Drop per Feature Across 10 Datasets",
                  fontsize=14, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    out = FIG_DIR / "fig7_ablation_multiplot.png"
+    out = FIG_DIR / "fig7_ablation_multiplot_.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved {out}")
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Fig 8 – SHAP multiplot
 # ══════════════════════════════════════════════════════════════════════════
 def make_shap_multiplot():
-    print("Generating fig8_shap_multiplot.png ...")
-    fig, axes = plt.subplots(2, 5, figsize=(22, 9))
+    print("Generating fig8_shap_multiplot_.png ...")
+    fig, axes = plt.subplots(4, 3, figsize=(16, 12))
     axes = axes.flatten()
 
     for idx, ds in enumerate(DATASETS):
@@ -346,13 +419,15 @@ def make_shap_multiplot():
         ax.tick_params(labelsize=7)
         ax.grid(axis="x", alpha=0.3)
 
+    _hide_extra_axes(axes, len(DATASETS))
     fig.suptitle("Normalized SHAP Feature Importance Across 10 Datasets",
                  fontsize=14, fontweight="bold")
     plt.tight_layout(rect=[0, 0, 1, 0.96])
-    out = FIG_DIR / "fig8_shap_multiplot.png"
+    out = FIG_DIR / "fig8_shap_multiplot_.png"
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved {out}")
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Main

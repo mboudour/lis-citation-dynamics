@@ -1,0 +1,11 @@
+Domain,Dataset,Keywords,Year range,Papers,Total unique citations,Mean ref length,Papers with abstract
+Science,protein_folding,"""protein folding""",1975–2024,"82,428","1,161,663",47.1,"82,428 (100.0%†)"
+Science,CRISPR,"""CRISPR""",2002–2024,"64,484","1,138,453",45.5,"64,484 (100.0%†)"
+BioMed,neuroblastoma,"""neuroblastoma""",1975–2024,"57,319","775,233",28.7,"57,319 (100.0%†)"
+BioMed,osteosarcoma,"""osteosarcoma"" OR ""bone sarcoma""",1975–2024,"61,187","649,724",24.3,"61,187 (100.0%†)"
+Engineering,additive_manufacturing,"""additive manufacturing""",1975–2024,"58,541","816,148",40.0,"58,541 (100.0%†)"
+Engineering,corrosion_protection,"""corrosion protection""",1975–2024,"26,486","323,246",29.3,"26,486 (100.0%†)"
+Social Science,income_inequality,"""income inequality""",1975–2024,"40,279","487,905",26.1,"40,279 (100.0%†)"
+Social Science,organizational_behavior,"""organizational behavior""",1975–2024,"75,622","856,527",29.0,"75,622 (100.0%†)"
+Humanities,film_studies,"""film studies""",1975–2024,"393,342","3,866,640",26.0,"393,342 (100.0%†)"
+Humanities,memory_studies,"""memory studies""",1975–2024,"347,195","4,047,258",35.9,"347,195 (100.0%†)"
